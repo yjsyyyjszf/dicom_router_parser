@@ -1,0 +1,64 @@
+# *Compass Router* DICOM Transfer Reporting
+
+## PowerShell Script (v4.0+) to Parse DICOMs
+Copies largest DICOM (.dcm) from source directory to new destination. 
+Then runs a tag dump to extract specific information about each study. 
+Note: the largest file size is used to avoid inadvertently parsing presentation states (PR) or stuctured reports (SR).
+Finally this script exports desired metadata to .csv/.xlsx, where each row = 1 instance of a DICOM transfer to the PHSWIMG_RTR. 
+
+
+## Options: 
+To exclude SWMC studies and toggle logging
+```powershell
+$PURGE_CSV_FILE= $False
+$EXPORT_FIRST_DCM = $True
+$DUMP_TAGS_XMLs = $True
+$FILTER_PH_AETs = $False
+pattern:['ADAC_','AEGISWEB','FILA_','MEHC_','RSEND_','SWMC_','SW_','SW_CATH','VANC_']
+```
+
+## Directories:
+```powershell
+$dcmtk_path = "D:\ImageRepository\dcmtk-3.6.5-win32-dynamic\bin"
+$src_path = "D:\ImageRepository\images"
+$dst_path = "D:\TxImageRepository\$base_filename$(Get-Month-Filename)"
+```
+
+
+## Example Output:
+![Screenshot](https://github.com/github-pdx/dicom.router-parser/blob/master/excel.export.png)
+* [Excel Report](https://github.com/github-pdx/dicom.router-parser/blob/master/PHSWIMG_RTR_Transfers_06-09-19.xlsx)
+* [DICOM Tag Dump](https://github.com/github-pdx/dicom.router-parser/blob/master/592dbbe4f8994a36abcf85b4d67e1abb.junk/9fe63f0a-d304-4a22-9e4b-f0ebe63f7f78.txt)
+* [XML Tag Dump](https://github.com/github-pdx/dicom.router-parser/blob/master/592dbbe4f8994a36abcf85b4d67e1abb.junk/9fe63f0a-d304-4a22-9e4b-f0ebe63f7f78.xml)
+
+
+## *DICOM* Resources:
+* [Compass Router](http://www.laurelbridge.com/pdf/Compass-User-Manual.pdf)
+* [DMTk](https://dicom.offis.de/dcmtk.php.en)
+* [dcm4che](https://dcm4che.atlassian.net/wiki/spaces/lib/overview)
+* [Slicer3D](https://www.slicer.org/)
+* [DICOM Cleaner](http://www.dclunie.com/pixelmed/software/webstart/DicomCleanerUsage.html)
+* [MATLAB DICOM Toolbox](https://www.mathworks.com/help/images/scientific-file-formats.html)
+* [SonicDICOM](https://sonicdicom.com/)
+* [Weasis](https://nroduit.github.io/en/)
+* [pydicom](https://pydicom.github.io/pydicom/stable/index.html)
+
+
+## License:
+[Licensed under the MIT License](LICENSE).
+
+
+## **Dependencies:**
+* [PowerShell v4.0+](https://www.microsoft.com/en-us/download/details.aspx?id=54616)
+* [DCMTK 3.6.4-executable binaries](https://github.com/github-pdx/dicom.router-parser/tree/master/dcmtk-3.6.4-win32-dynamic)
+* [Microsoft Visual C++ 2012 Redistributable Package (x64)](https://www.microsoft.com/en-us/download/details.aspx?id=30679)
+
+When attempting to run \dcmtk-3.6.4-**win64**-dynamic\bin\dcmdump.exe to parse tag data, if you get the following error: 
+![Screenshot](https://github.com/github-pdx/dicom.router-parser/blob/master/missing.MSVCP110.dll_(x64).png)
+
+**Below is the fix:**
+
+![Screenshot](https://github.com/github-pdx/dicom.router-parser/blob/master/install.C++.redistributable_(x64).png)
+
+## Maintainer:
+Emile Averill
