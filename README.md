@@ -26,8 +26,8 @@ $dst_path = "D:\TxImageRepository\$base_filename$(Get-Month-Filename)"
 
 
 ## Example Output:
-![Screenshot](https://github.com/github-pdx/dicom.router.parser/blob/master/excel.export.png)
-* [Excel Report](https://github.com/github-pdx/dicom.router.parser/blob/master/PHSWIMG_RTR_Transfers_06-09-19.xlsx)
+![Screenshot](https://github.com/github-pdx/dicom.router.parser/blob/master/img/excel.export.png)
+* [Excel Report](https://github.com/github-pdx/dicom.router.parser/blob/master/output/PHSWIMG_RTR_Transfers_06-09-19.xlsx)
 * [DICOM Tag Dump](https://github.com/github-pdx/dicom.router.parser/blob/master/592dbbe4f8994a36abcf85b4d67e1abb.junk/9fe63f0a-d304-4a22-9e4b-f0ebe63f7f78.txt)
 * [XML Tag Dump](https://github.com/github-pdx/dicom.router.parser/blob/master/592dbbe4f8994a36abcf85b4d67e1abb.junk/9fe63f0a-d304-4a22-9e4b-f0ebe63f7f78.xml)
 
@@ -50,15 +50,14 @@ $dst_path = "D:\TxImageRepository\$base_filename$(Get-Month-Filename)"
 
 ## **Dependencies:**
 * [PowerShell v4.0+](https://www.microsoft.com/en-us/download/details.aspx?id=54616)
-* [DCMTK 3.6.4-executable binaries](https://github.com/github-pdx/dicom.router.parser/tree/master/dcmtk-3.6.4-win32-dynamic)
+* [DCMTK 3.6.5-executable binaries](https://github.com/github-pdx/dicom.router.parser/tree/master/dcmtk-3.6.5-win32-dynamic)
 * [Microsoft Visual C++ 2012 Redistributable Package (x64)](https://www.microsoft.com/en-us/download/details.aspx?id=30679)
 
-When attempting to run \dcmtk-3.6.4-**win64**-dynamic\bin\dcmdump.exe to parse tag data, if you get the following error: 
-![Screenshot](https://github.com/github-pdx/dicom.router.parser/blob/master/missing.MSVCP110.dll_(x64).png)
+When attempting to run \dcmtk-3.6.5-**win64**-dynamic\bin\dcmdump.exe to parse tag data, if you get the following error: 
+![Screenshot](https://github.com/github-pdx/dicom.router.parser/blob/master/img/missing.MSVCP110.dll_(x64).png)
 
 **Below is the fix:**
-
-![Screenshot](https://github.com/github-pdx/dicom.router.parser/blob/master/install.C++.redistributable_(x64).png)
+![Screenshot](https://github.com/github-pdx/dicom.router.parser/blob/master/img/install.C++.redistributable_(x64).png)
 
 ## Maintainer:
 Emile Averill
