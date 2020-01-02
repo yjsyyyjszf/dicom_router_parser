@@ -54,9 +54,11 @@ $dst_path = "D:\TxImageRepository\$base_filename$(Get-Month-Filename)"
 * [Microsoft Visual C++ 2012 Redistributable Package (x64)](https://www.microsoft.com/en-us/download/details.aspx?id=30679)
 
 When attempting to run \dcmtk-3.6.5-**win64**-dynamic\bin\dcmdump.exe to parse tag data, if you get the following error: 
+
 ![Screenshot](https://github.com/github-pdx/dicom.router.parser/blob/master/img/missing.MSVCP110.dll_(x64).png)
 
 **Below is the fix:**
+
 ![Screenshot](https://github.com/github-pdx/dicom.router.parser/blob/master/img/install.C++.redistributable_(x64).png)
 
 ## Maintainer:
