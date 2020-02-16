@@ -1,0 +1,10 @@
+Note: folder struture of Compass router
+D:\drive
+  --ImageRepository (folder)
+     --images       (folder)
+        --suid      (folder)
+           --image1.dcm     (files with .dcm file extention)
+           --image2.dcm
+            ...
+           --imageN.dcm
+           

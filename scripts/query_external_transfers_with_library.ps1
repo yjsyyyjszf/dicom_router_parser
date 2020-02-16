@@ -4,7 +4,7 @@ PS script to connect to Compass database and extract external transfers
 $author = "Emile Averill"
 $email = "dicom.pdx@runbox.com"
 $status = "Testing on PHODICOMRTRTST PS v4.0 to v5.1"
-$version = "1.0.8"
+$version = "1.0.9"
 $ps_version = $PSVersionTable.PSVersion
 $script_name = $MyInvocation.MyCommand.Name 
 
@@ -164,7 +164,7 @@ function Perform_Query {
     try {
         $sqlConnection = New-Object System.Data.SqlClient.SqlConnection $connectionString
         $sqlConnection.Open()
-        #Write-Warning -Message ("SQL Connection: '{0}' {1}" -f $sqlConnection.State, $sqlConnection.ConnectionString)
+        #Write-Host ("SQL Connection: '{0}' {1}" -f $sqlConnection.State, $sqlConnection.ConnectionString)
              
         $sqlcmd = $sqlConnection.CreateCommand()
         $sqlcmd = New-Object System.Data.SqlClient.SqlCommand
@@ -254,21 +254,23 @@ if ($isDstValid) {
                 if ($PURGE_CSV_FILE) {
                     Purge_File $csv_path
                 }
-                $result_obj.table | Export-Csv -Path $csv_path -delimiter $delimiter -NoTypeInformation -Append -Force
-                $headers = (Get-Content $csv_path | Select-Object -First 1).Split($delimiter)
+                if ($result_obj.count -gt 0) {
+                    $result_obj.table | Export-Csv -Path $csv_path -delimiter $delimiter -NoTypeInformation -Append -Force
+                    $headers = (Get-Content $csv_path | Select-Object -First 1).Split($delimiter)
 
-                $first_col = [string]$headers.Item(0)
-                if ("$first_col" -like "*System.Data.DataRow*") {
-                    # remove 1st row: '#TYPE System.Data.DataRow'
-                    $no_type_data = Get-Content -Path $csv_path | Select-Object -Skip 1 
-                    Set-Content -Path $csv_path -Value $no_type_data
-                    Write-Host("Note: removed 1st row: '#TYPE System.Data.DataRow'" ) -ForegroundColor Gray
-                } 
+                    $first_col = [string]$headers.Item(0)
+                    if ("$first_col" -like "*System.Data.DataRow*") {
+                        # remove 1st row: '#TYPE System.Data.DataRow'
+                        $no_type_data = Get-Content -Path $csv_path | Select-Object -Skip 1 
+                        Set-Content -Path $csv_path -Value $no_type_data
+                        Write-Host("Note: removed 1st row: '#TYPE System.Data.DataRow'" ) -ForegroundColor Gray
+                    } 
+                }
             } catch {
                 $ErrorMessage = $_.Exception.Message
                 Write-Warning -Message ("~!*ERROR*!~ $ErrorMessage $FailedItem" )
             }
-            $prior_count = (Get-Content $csv_path | Measure-Object –Line )
+            $prior_count = (Get-Content $csv_path | Measure-Object -Line )
             Write-Host ("result_set: {0} rows added for {1} entries total" -f $result_obj.count, $prior_count.Lines)
         } #dst_path
         
@@ -280,3 +282,4 @@ if ($isDstValid) {
 
 $title_str = ("finished running on '{0}'" -f $server_name)
 Stop_Print_Timer $benchmark $title_str
+

@@ -1,10 +1,10 @@
-# *Compass Router* DICOM Transfer Reporting
+# *Compass Imaging Router* DICOM Transfer Reporting
 
 ## PowerShell Script (v4.0+) to Parse DICOMs
-Copies largest DICOM (.dcm) from source directory to new destination. 
+Copies *largest* DICOM (.dcm) from source directory to new destination.
 Then runs a tag dump to extract specific information about each study. 
 Note: the largest file size is used to avoid inadvertently parsing presentation states (PR) or stuctured reports (SR).
-Finally this script exports desired metadata to .csv/.xlsx, where each row = 1 instance of a DICOM transfer to the PHSWIMG_RTR. 
+Finally this script exports desired metadata to .csv/.xlsx, where each row = 1 instance of a DICOM transfer to the IMG_RTR. 
 
 
 ## Options: 
@@ -14,16 +14,18 @@ $PURGE_CSV_FILE= $False
 $EXPORT_FIRST_DCM = $True
 $DUMP_TAGS_XMLs = $True
 $FILTER_PH_AETs = $False
+$PURGE_ALL = $False
 pattern:['ADAC_','AEGISWEB','FILA_','MEHC_','RSEND_','SWMC_','SW_','SW_CATH','VANC_']
 ```
 
 ## Directories:
 ```powershell
-$dcmtk_path = "D:\ImageRepository\dcmtk-3.6.5-win32-dynamic\bin"
-$src_path = "D:\ImageRepository\images"
-$dst_path = "D:\TxImageRepository\$base_filename$(Get-Month-Filename)"
+$dcmtk_path = "$pwd_parent_path\dcmtk-3.6.5-win32-dynamic\bin"
+$src_path = "$pwd_parent_path\input\images"
+$dst_path = "$pwd_parent_path\output\$base_filename$(Get-Month-Filename)"
+IMG_RTR_MM-YYYY_DICOMs (for output dcm/tag dumps)
+IMG_RTR_MM-YYYY_LOGs   (for Excel/text reports)
 ```
-
 
 ## Example Output:
 ![Screenshot](https://github.com/github-pdx/dicom.router.parser/blob/master/img/excel.export.png)

@@ -7,7 +7,7 @@ Finally this script exports desired metadata to .csv/.xlsx, where each row = 1 i
 $author = "Emile Averill"
 $email = "dicom.pdx@runbox.com"
 $status = "Testing on PHODICOMRTRTST PS v4.0 to v5.1"
-$version = "1.3.1"
+$version = "1.3.3"
 $ps_version = $PSVersionTable.PSVersion
 $script_name = $MyInvocation.MyCommand.Name 
 
@@ -28,11 +28,11 @@ https://stackoverflow.com/questions/38523369/write-host-vs-write-information-in-
 
 $server_name = $env:ComputerName
 $root_dir = $PSScriptRoot
-$base_filename = "PH_IMG_RTR"
+$base_filename = "IMG_RTR"
 
 #~#~#~# FLAGS: toggle with $True or $False #~#~#~# 
+$PURGE_ALL = $True
 $PURGE_OUTPUT_CSV = $False
-$PURGE_ALL = $False
 $DEBUG = $False
 $VERBOSE = $True
 $PRINT_FILE_STATS = $False
@@ -41,7 +41,7 @@ $delimiter = ","
 
 #~#~#~# OPTIONS:
 $EXPORT_FIRST_DCM = $True
-$DUMP_TAGS_XMLs = $False
+$DUMP_TAGS_XMLs = $True
 $FILTER_PH_AETs = $False
 
 $PHSW_AET_pattern = [string[]] ("ADAC_","AEGISWEB","FILA_","VANC_", "MEHC_","RSEND_","SWMC_","SW_","SW_CATH","VHI_")
@@ -50,12 +50,12 @@ ForEach($substring in $PHSW_AET_pattern) {
     $PHSW_AET_pattern_str += "'"+$substring+"'"
 }
 
-
 function Start_Timer () {
     [OutputType([System.Diagnostics.Stopwatch])]
     $timer = [System.Diagnostics.Stopwatch]::StartNew()
     return $timer 
 }
+
 function Stop_Print_Timer ([System.Diagnostics.Stopwatch] $input_timer, [string] $input_title='default_title' ) {
     $input_timer.Stop()
     if ($PRINT_TIMER) {
@@ -70,25 +70,31 @@ $benchmark = Start_Timer
 function Get_TimeStamp {  
     return "{0:MM/dd/yy} {0:HH:mm:ss tt}" -f (Get-Date)
 }
+
 function Get_Month_Filename {  
     return "_{0:MM-yyyy}" -f (Get-Date)
 }
+
 function Get_Week_Filename { 
     $month_str = "{0:MM-yyyy}" -f (Get-Date)
     $week_num = (Get-Date -UFormat %V)
     $week_str = "week$week_num"
     return "_$month_str.$week_str"
 }
+
 function Get_Today_Filename {  
     return "_{0:MM-dd-yyyy}" -f (Get-Date)
 }
+
 function Get_TimeStamp_Filename {  
     return "_{0:MM-dd-yyyy}-{0:HH.mm_tt}" -f (Get-Date)
 }
+
 function Get_Modified_Timestamp ( [string]$input_filepath='default_path' ) { 
     $file_stat = (Get-Item -Path $input_filepath)
     return "created@{0:HH.mmtt}" -f $file_stat.LastWriteTime
 }
+
 function is_Path_Valid ( [string]$title_str='default_title', [string]$input_path='default_path' ) { 
     if (Test-Path $input_path) { 
         $isPathValid = $True
@@ -98,6 +104,7 @@ function is_Path_Valid ( [string]$title_str='default_title', [string]$input_path
     }
     return $isPathValid
 }
+
 function Print_Bool_State ( [string]$input_title='default_title', [bool]$input_bool ) {
     if (($input_bool) -and ($VERBOSE)) {
         Write-Host ("{0,-18} {1,-5}= ENABLED" -f $input_title, $input_bool ) -ForegroundColor DarkGreen
@@ -107,14 +114,16 @@ function Print_Bool_State ( [string]$input_title='default_title', [bool]$input_b
 }
 
 $pwd_path = Get-Location
-$dcmtk_path = "$pwd_path\dcmtk-3.6.5-win32-dynamic\bin"
+$pwd_parent_path = Split-Path -Path $pwd_path -Parent
+$dcmtk_path = "$pwd_parent_path\dcmtk-3.6.5-win32-dynamic\bin"
 $isdcmtkPathValid = is_Path_Valid "dcmtk_path" $dcmtk_path
 
-$src_parent_path = "D:\ImageRepository"
+#$src_parent_path = "D:\ImageRepository"     # on compass router 
+$src_parent_path = "$pwd_parent_path\input"  # for demo: current working directory
 $src_path = (Join-Path "$src_parent_path" -ChildPath "images")
 $isSrcValid = is_Path_Valid "src_path" $src_path
 
-$dst_parent_path = "D:\PH_IMG_RTR_TX_LOGS"
+$dst_parent_path = "$pwd_parent_path\output"
 $dst_path = (Join-Path "$dst_parent_path" -ChildPath "$base_filename$(Get_Month_Filename)")
 $dst_drive_name = Split-Path -Path $dst_parent_path -Qualifier
 
@@ -141,7 +150,7 @@ Function Purge_Directory ( [string]$input_dirpath='default_path' ) {
 function Purge_File ( [string]$input_filepath='default_path' ) {
     if (Test-Path $input_filepath) {
         try {
-            #Write-Host ("purging: $input_filepath")
+            Write-Host ("purging: $input_filepath")
             Remove-Item -LiteralPath "$input_filepath" -Force
         } catch {
             $ErrorMessage = $_.Exception.Message
@@ -162,7 +171,10 @@ if ($isDstValid) {
         } 
         Purge_File $log_outfile
     } 
-    Create_Directory $dump_dst_parent
+
+    if ($EXPORT_FIRST_DCM -or $DUMP_TAGS_XMLs) {
+        Create_Directory $dump_dst_parent
+    }
     Create_Directory $file_dst_parent
 
     Write-Host (" <-- src_path: {0}" -f $src_path)
@@ -342,7 +354,7 @@ if ($isDstValid) {
         "ImageCount", "FolderSize", "DICOMPath", "DICOMFilename")
         Write-Log ($header -join "`t")
 
-        if(Test-Path $csv_path) {
+        if (Test-Path $csv_path) {
             $last_data_row = (Get-Content $csv_path)[-1]
             $data_array = $last_data_row.Split('"') 
             $last_row_count = [int]$data_array[1] 
