@@ -120,7 +120,7 @@ def export_to_excel(output_path: str = 'default_path', output_filename: str = 'd
     print(status_str)
     if (len(stat_list_of_lists) > 0): 
         try:
-            file_basename, file_ext = os.path.split(output_filename)
+            file_basename, file_ext = output_filename.split('.')
             output_filepath = os.path.join(output_path, output_filename)
             workbook = xlsxwriter.Workbook("{}".format(output_filepath))
             worksheet1 = workbook.add_worksheet(file_basename[:MAX_EXCEL_TAB])  # <= 31 chars
