@@ -2,12 +2,12 @@
 PS script to copy largest DICOM (.dcm) from source directory to new destination 
 Then runs a tag dump to extract specific information about each study. 
 Note: the largest file size is used to avoid inadvertently parsing presentation states (PR) or stuctured reports (SR).
-Finally this script exports desired metadata to .csv/.xlsx, where each row = 1 instance of a DICOM transfer to the PHSWIMG_RTR. 
+Lastly, this script exports desired metadata to .csv/.xlsx, where each row = 1 instance of a DICOM transfer to the PHSWIMG_RTR. 
 #>
 $author = "Emile Averill"
 $email = "dicom.pdx@runbox.com"
 $status = "Testing on PHODICOMRTRTST PS v4.0 to v5.1"
-$version = "1.3.3"
+$version = "1.3.4"
 $ps_version = $PSVersionTable.PSVersion
 $script_name = $MyInvocation.MyCommand.Name 
 
@@ -42,19 +42,21 @@ $delimiter = ","
 #~#~#~# OPTIONS:
 $EXPORT_FIRST_DCM = $True
 $DUMP_TAGS_XMLs = $True
-$FILTER_PH_AETs = $False
+$FILTER_AETs = $False
 
-$PHSW_AET_pattern = [string[]] ("ADAC_","AEGISWEB","FILA_","VANC_", "MEHC_","RSEND_","SWMC_","SW_","SW_CATH","VHI_")
-$PHSW_AET_pattern_str = ""
-ForEach($substring in $PHSW_AET_pattern) {
-    $PHSW_AET_pattern_str += "'"+$substring+"'"
+$AET_PATTERN = [string[]] ("ADAC_","AEGISWEB","FILA_","VANC_", "MCPB_", "MEHC_","RSEND_","SWMC_","SW_","SW_CATH","VHI_")
+$AET_PATTERN_STR = ""
+ForEach($substring in $AET_PATTERN) {
+    $AET_PATTERN_STR += "'"+$substring+"'"
 }
+
 
 function Start_Timer () {
     [OutputType([System.Diagnostics.Stopwatch])]
     $timer = [System.Diagnostics.Stopwatch]::StartNew()
     return $timer 
 }
+
 
 function Stop_Print_Timer ([System.Diagnostics.Stopwatch] $input_timer, [string] $input_title='default_title' ) {
     $input_timer.Stop()
@@ -71,29 +73,35 @@ function Get_TimeStamp {
     return "{0:MM/dd/yy} {0:HH:mm:ss tt}" -f (Get-Date)
 }
 
+
 function Get_Month_Filename {  
     return "_{0:MM-yyyy}" -f (Get-Date)
 }
+
 
 function Get_Week_Filename { 
     $month_str = "{0:MM-yyyy}" -f (Get-Date)
     $week_num = (Get-Date -UFormat %V)
     $week_str = "week$week_num"
-    return "_$month_str.$week_str"
+    return "_$month_str_$week_str"
 }
+
 
 function Get_Today_Filename {  
     return "_{0:MM-dd-yyyy}" -f (Get-Date)
 }
 
+
 function Get_TimeStamp_Filename {  
     return "_{0:MM-dd-yyyy}-{0:HH.mm_tt}" -f (Get-Date)
 }
+
 
 function Get_Modified_Timestamp ( [string]$input_filepath='default_path' ) { 
     $file_stat = (Get-Item -Path $input_filepath)
     return "created@{0:HH.mmtt}" -f $file_stat.LastWriteTime
 }
+
 
 function is_Path_Valid ( [string]$title_str='default_title', [string]$input_path='default_path' ) { 
     if (Test-Path $input_path) { 
@@ -105,6 +113,7 @@ function is_Path_Valid ( [string]$title_str='default_title', [string]$input_path
     return $isPathValid
 }
 
+
 function Print_Bool_State ( [string]$input_title='default_title', [bool]$input_bool ) {
     if (($input_bool) -and ($VERBOSE)) {
         Write-Host ("{0,-18} {1,-5}= ENABLED" -f $input_title, $input_bool ) -ForegroundColor DarkGreen
@@ -112,6 +121,7 @@ function Print_Bool_State ( [string]$input_title='default_title', [bool]$input_b
         Write-Host ("{0,-18} {1,-5}= DISABLED" -f $input_title, $input_bool ) -ForegroundColor Red
     }
 }
+
 
 $pwd_path = Get-Location
 $pwd_parent_path = Split-Path -Path $pwd_path -Parent
@@ -130,12 +140,15 @@ $dst_drive_name = Split-Path -Path $dst_parent_path -Qualifier
 Write-Host ("'{0}' v:{1} running PSversion:{2} on {3}" -f $script_name, $version, $ps_version, $server_name) -ForegroundColor Gray
 $isDstValid = is_Path_Valid "dst_drive_name" $dst_drive_name
 
+
 function Create_Directory ( [string]$input_dirpath='default_path' ) {
     if(!(Test-Path "$input_dirpath")) {
          $null = New-Item -ItemType Directory -Path $input_dirpath -Force
     }
 }
-Function Purge_Directory ( [string]$input_dirpath='default_path' ) {
+
+
+function Purge_Directory ( [string]$input_dirpath='default_path' ) {
     if( Test-Path $input_dirpath ) {
         try {
             Write-Warning -Message ("purging: $input_dirpath")
@@ -147,6 +160,8 @@ Function Purge_Directory ( [string]$input_dirpath='default_path' ) {
         }          
     }
 }
+
+
 function Purge_File ( [string]$input_filepath='default_path' ) {
     if (Test-Path $input_filepath) {
         try {
@@ -159,9 +174,10 @@ function Purge_File ( [string]$input_filepath='default_path' ) {
     }
 }
 
+
 if ($isDstValid) {
     $dump_dst_parent = "$dst_path" + "_DICOMs"
-    $file_dst_parent = "$dst_path" + "_LOGs"
+    $file_dst_parent = "$dst_path" + "_REPORTs"
     $log_outfile = (Join-Path "$file_dst_parent" -ChildPath "$base_filename$(Get_Today_Filename).txt")
 
     if(Test-Path $dst_parent_path) {
@@ -171,7 +187,6 @@ if ($isDstValid) {
         } 
         Purge_File $log_outfile
     } 
-
     if ($EXPORT_FIRST_DCM -or $DUMP_TAGS_XMLs) {
         Create_Directory $dump_dst_parent
     }
@@ -180,6 +195,7 @@ if ($isDstValid) {
     Write-Host (" <-- src_path: {0}" -f $src_path)
     Write-Host (" --> dst_path: {0}" -f $dst_path)
 }
+
 
 function Format_Elapsed_Time ( [TimeSpan]$ts ) {
     [OutputType([string])]
@@ -230,6 +246,7 @@ function Print_File_Stats ( [string]$input_filepath='default_path' ) {
     } # input_filepath
 }
 
+
 function Is_Excel_Installed () {
     [OutputType([bool])]
     $isExcelInstalled = $False
@@ -241,6 +258,7 @@ function Is_Excel_Installed () {
     }
     return $isExcelInstalled
 }
+
 
 function Release_Excel_Reference ($ref) {
     try {
@@ -268,7 +286,7 @@ function Verify-AET ([string]$input_AET) {
     $isValid = $False
     $isMinLength = ($input_AET.Length -gt 0)
     if($isMinLength) {
-        $isNotInsideStudy = ($PHSW_AET_pattern | %{$input_AET.contains($_)}) -notcontains $True
+        $isNotInsideStudy = ($AET_PATTERN | %{$input_AET.contains($_)}) -notcontains $True
         if($isNotInsideStudy) {
             $isValid = $True
         }
@@ -317,7 +335,7 @@ if ($isDstValid) {
         $outfile_week_path = (Join-Path "$file_dst_parent" -ChildPath "$outfile_subdir")
         $encoding = "UTF8"
 
-        if ($FILTER_PH_AETs) {
+        if ($FILTER_AETs) {
             $csv_path = $outfile_week_path + "_fltr.csv"
             $xls_path = $outfile_week_path + "_fltr.xlsx"
         } else {
@@ -334,11 +352,10 @@ if ($isDstValid) {
             Write-Host ("`t*csv_path: " + $csv_path)
         }
 
-
         Write-Host ( "`n*OPTIONS: selected*")
         Write-Host ( "`t*PURGE_OUTPUT_CSV: {0,-6}" -f $PURGE_OUTPUT_CSV.ToString().ToUpper() )
         Write-Host ( "`t*DUMP_TAGS_XMLs: {0,-6}" -f $DUMP_TAGS_XMLs.ToString().ToUpper() + "`t dumped to: '" + $file_dst_parent + "'")
-        Write-Host ( "`t*FILTER_PH_AETs: {0,-6}" -f $FILTER_PH_AETs.ToString().ToUpper() + "`t pattern:[" + $PHSW_AET_pattern_str + "]`n" )
+        Write-Host ( "`t*FILTER_AETs: {0,-6}" -f $FILTER_AETs.ToString().ToUpper() + "`t pattern:[" + $AET_PATTERN_STR + "]`n" )
 
         Print_Bool_State 'VERBOSE' $VERBOSE
         Print_Bool_State 'DEBUG' $DEBUG
@@ -346,13 +363,11 @@ if ($isDstValid) {
         Print_Bool_State 'PRINT_FILE_STATS' $PRINT_FILE_STATS
         Print_Bool_State 'PRINT_TIMER' $PRINT_TIMER
 
-
         #~#~#~# create header #~#~#~#
         $header = [string[]] ("StudyCount", "HitCount", "TransferDateTime", "InstitutionName", "PatientID", "AccessionNumber",`
         "SourceApplicationEntityTitle", "SendingApplicationEntityTitle", "ReceivingApplicationEntityTitle", "StationName",`
         "StudyDate", "Modality", "Manufacturer", "ManufacturerModelName",`
         "ImageCount", "FolderSize", "DICOMPath", "DICOMFilename")
-        Write-Log ($header -join "`t")
 
         if (Test-Path $csv_path) {
             $last_data_row = (Get-Content $csv_path)[-1]
@@ -381,7 +396,7 @@ if ($isDstValid) {
 
             Write-Host (" {0:D3}`t {1,-64} `t{2:D4} images `t dir:[{3}]" -f $folder_count, $src_subdir_path, $image_count, $folder_size) -ForegroundColor DarkCyan
 
-            #~#~#~# deal with spaces in file path: 'D:\subfolder\filename_with_S P A C E S.dcm' #~#~#~#
+            #~#~#~# account for spaces in file path: 'D:\subfolder\filename_with_S P A C E S.dcm' #~#~#~#
             $dcm_fullpaths = (Get-ChildItem -Path "$src_subdir_path" -Filter *.dcm -Recurse -File | Sort-Object -Property Length -Descending | %{ $_.FullName })
             $first_dcm_path = $dcm_fullpaths | Select-Object -First 1
 
@@ -401,7 +416,6 @@ if ($isDstValid) {
                 Copy-Item -Path $first_dcm_path -Destination $dst_subdir_path
             }
 
-            <# comment block #> 
             if ($isdcmtkPathValid) {
                 if ($DUMP_TAGS_XMLs) {
                     #~#~#~# Dump DICOM tags to TEXT file #~#~#~#
@@ -450,10 +464,9 @@ if ($isDstValid) {
                 $SourceApplicationEntityTitle, $SendingApplicationEntityTitle, $ReceivingApplicationEntityTitle,`
                 $StationName, $StudyDateFormat, $Modality, $Manufacturer, $ManufacturerModelName, `
                 $image_count, $folder_size, $src_subdir_path, $first_dcm_filename )
-                Write-Log ($parsed_tag_list -join "`t")
             
                 $isValidAET = $True
-                if ($FILTER_PH_AETs) {
+                if ($FILTER_AETs) {
                     $isValidAET = Verify-AET ($SendingApplicationEntityTitle)
                     #Write-Host ("`t srcAET: '" + $SendingApplicationEntityTitle +"'`t len?: " + $SendingApplicationEntityTitle.Length + " valid?: " +$isValidAET.ToString().ToUpper() +"`t hit_count: " + $hit_count  +" of " + $folder_count)
                 }
@@ -513,8 +526,8 @@ if ($isDstValid) {
                 $worksheet.Application.ActiveWindow.FreezePanes = $True
                 $xls.DisplayAlerts=$False
 
-                $xlsCenter=-4108
-                $xls.Rows.HorizontalAlignment = $xlsCenter
+                $xls_center=-4108
+                $xls.Rows.HorizontalAlignment = $xls_center
 
                 #~#~#~# dynamically find columns of interest #~#~#~#
                 $folder_col = $xls.Columns.find("StudyCount").Column
@@ -530,9 +543,8 @@ if ($isDstValid) {
                 $xls.Columns.item($images_col).NumberFormat = "0"   # ImageCount
                                             
                 $null = $xls.ActiveSheet.UsedRange.EntireColumn.AutoFit()
-                $xlsLSXType = 51        # Open XML Workbook *.xlsx
-
-                $workbook.SaveAs($xls_path, $xlsLSXType)
+                $xls_lsx_type = 51        # Open XML Workbook *.xlsx
+                $workbook.SaveAs($xls_path, $xls_lsx_type)
                 
             } catch {
                 $ErrorMessage = $_.Exception.Message
@@ -546,13 +558,10 @@ if ($isDstValid) {
          }
          Write-Host ("SUCCESS! {0}" -f $xls_path) -ForegroundColor DarkGreen
     }
-
 }
 
-$transfer_count_str = ("`n{0} tranfers logged of {1} total studies `t[FILTER_PH_AETs: {2}]" -f $hit_count, $folder_count, $FILTER_PH_AETs.ToString().ToUpper() )
-Write-Log ($transfer_count_str)
+$transfer_count_str = ("`n{0} tranfers logged of {1} total studies `t[FILTER_AETs: {2}]" -f $hit_count, $folder_count, $FILTER_AETs.ToString().ToUpper() )
 Write-Host ($transfer_count_str)
 
 $title_str = ("finished running on '{0}'" -f $server_name)
 Stop_Print_Timer $benchmark $title_str
-Write-Log ($title_str)

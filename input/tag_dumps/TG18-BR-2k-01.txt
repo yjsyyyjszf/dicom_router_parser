@@ -11,7 +11,7 @@ D:\ImageRepository\images\multi-2k-dcm\multi-2K\TG18-BR\TG18-BR-2k-01.dcm	 image
 (0002,0010) UI =LittleEndianImplicit                    #  18, 1 TransferSyntaxUID
 (0002,0012) UI [2.16.124.113543.6004.101.103.1]         #  30, 1 ImplementationClassUID
 (0002,0013) SH [TSHOWVER20021111]                       #  16, 1 ImplementationVersionName
-(0002,0016) AE [DCF]                                    #   4, 1 SourceApplicationEntityTitle
+(0002,0016) AE [AAPM_OT_DCF]                            #   4, 1 SourceApplicationEntityTitle
 
 # Dicom-Data-Set
 # Used TransferSyntax: Little Endian Implicit

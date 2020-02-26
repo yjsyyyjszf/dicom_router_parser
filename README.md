@@ -29,9 +29,10 @@ IMG_RTR_MM-YYYY_LOGs   (for Excel/text reports)
 
 ## Example Output:
 ![Screenshot](https://github.com/github-pdx/dicom.router.parser/blob/master/img/excel.export.png)
-* [Excel Report](https://github.com/github-pdx/dicom.router.parser/blob/master/output/PHSWIMG_RTR_Transfers_06-09-19.xlsx)
+* [DICOM-based Excel Report](https://github.com/github-pdx/dicom.router.parser/blob/master/output/IMG_RTR_Transfers_06-09-19.xlsx)
 * [DICOM Tag Dump](https://github.com/github-pdx/dicom.router.parser/blob/master/592dbbe4f8994a36abcf85b4d67e1abb.junk/9fe63f0a-d304-4a22-9e4b-f0ebe63f7f78.txt)
 * [XML Tag Dump](https://github.com/github-pdx/dicom.router.parser/blob/master/592dbbe4f8994a36abcf85b4d67e1abb.junk/9fe63f0a-d304-4a22-9e4b-f0ebe63f7f78.xml)
+* [Tag-based Excel Report](https://github.com/github-pdx/dicom.router.parser/blob/master/output/~dicom_tag_dumps.xlsx)
 
 
 ## *DICOM* Resources:
