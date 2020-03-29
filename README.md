@@ -47,7 +47,7 @@ IMG_RTR_MM-YYYY_LOGs   (for Excel/text reports)
 * [pydicom](https://pydicom.github.io/pydicom/stable/index.html)
 * [DCF SDK](http://www.laurelbridge.com/products/dcf/)
 * [DCF Examples](http://www.laurelbridge.com/docs/dcf34/ExampleDocs/)
-
+* [GDCM](https://github.com/malaterre/GDCM)
 
 ## License:
 [Licensed under the MIT License](LICENSE).

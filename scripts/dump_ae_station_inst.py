@@ -20,8 +20,10 @@ import xlsxwriter
 
 BASE_DIR, SCRIPT_NAME = os.path.split(os.path.abspath(__file__))
 PARENT_PATH, CURR_DIR = os.path.split(BASE_DIR)
+
 DEBUG = False
 VERBOSE = False
+DEMO = True
 
 
 def get_isp_info() -> str:
@@ -31,7 +33,7 @@ def get_isp_info() -> str:
     except HTTPError as exception:
         print('HTTPError code: ', exception.code)
     except URLError as exception:
-        print("\nERROR: {} {}".format(sys.exc_info()[0], exception))
+        print(f"\nERROR: {sys.exc_info()[0]} {exception}")
         return exception.reason
     isp_data = json.load(response)
     info_str = json.dumps(isp_data, sort_keys=True, indent=4)
@@ -40,23 +42,23 @@ def get_isp_info() -> str:
 
 __author__ = "Emile Averill"
 __email__ = "github.pdx@runbox.com"
-__status__ = "testing"
+__status__ = "demo"
 __license__ = "MIT"
-__version__ = "1.2.5"
-__python_version__ = "{}".format(platform.python_version())
-__host_architecture__ = "{} {} {}".format(platform.system(), platform.architecture()[0], platform.machine())
-__script_encoding__ = "{:26} ({})".format(SCRIPT_NAME, str(sys.getfilesystemencoding()).upper())
-__host_info__ = "{:26} ({}) {:16}".format(platform.node(), locale.getpreferredencoding(), __host_architecture__)
-__header__ = """  license: \t{}
-  python:  \t{}
-  host:    \t{}
-  script:  \t{}
-  author:  \t{}
-  email:   \t{}
-  status:  \t{}
-  version: \t{}
-{}
-""".format(__license__, __python_version__, __host_info__, __script_encoding__, __author__, __email__, __status__, __version__, get_isp_info())
+__version__ = "1.2.6"
+__python_version__ = f"{platform.python_version()}"
+__host_architecture__ = f"{platform.system()} {platform.architecture()[0]} {platform.machine()}"
+__script_encoding__ = f"{SCRIPT_NAME:26} ({str(sys.getfilesystemencoding()).upper()})"
+__host_info__ = f"{platform.node():26} ({locale.getpreferredencoding()}) {__host_architecture__:16}"
+__header__ = f"""  license: \t{__license__}
+  python:  \t{__python_version__}
+  host:    \t{__host_info__}
+  script:  \t{__script_encoding__}
+  author:  \t{__author__}
+  email:   \t{__email__}
+  status:  \t{__status__}
+  version: \t{__version__}
+  isp_info:\t{get_isp_info()}
+"""
 
 
 def print_header() -> None:
@@ -68,7 +70,7 @@ MAX_EXCEL_TAB_DIR = 27
 MAX_EXCEL_TAB = 31
 TEMP_TAG = '~'
 ALPHABET = string.ascii_uppercase
-valid_chars = "-_.()~{}{}".format(string.ascii_letters, string.digits)
+valid_chars = f"-_.()~{string.ascii_letters}{string.digits}"
 
 AVOID_DIRS = []
 AVOID_DIRS.append('.git')
@@ -108,21 +110,21 @@ def get_header_column_widths(input_tag_list: list = []) -> dict:
                     max_length *= scalar   
                 hdr_col_width_dict[header] = int(math.ceil(max_length)) + 2  # each char=1, +2 for readability
     if (VERBOSE):
-        print("dynamically sized columns widths:")
+        print("\nDynamically sized columns widths:")
         for key, value in hdr_col_width_dict.items():
-            print("   {:28} \t {} chars".format(key, value))
+            print(f"   {key:28} \t {value} chars")
     return hdr_col_width_dict
 
 
 def export_to_excel(output_path: str = 'default_path', output_filename: str = 'default_filename', stat_list_of_lists: list = []) -> str:
     def_name = sys._getframe().f_code.co_name.upper()
-    status_str = "{}() in: '{}'\n".format(def_name, output_path)
+    status_str = f"{def_name}() in: '{output_path}'\n"
     print(status_str)
     if (len(stat_list_of_lists) > 0): 
         try:
             file_basename, file_ext = output_filename.split('.')
             output_filepath = os.path.join(output_path, output_filename)
-            workbook = xlsxwriter.Workbook("{}".format(output_filepath))
+            workbook = xlsxwriter.Workbook(f"{output_filepath}")
             worksheet1 = workbook.add_worksheet(file_basename[:MAX_EXCEL_TAB])  # <= 31 chars
             worksheet1.freeze_panes(1, 0)
             # https://xlsxwriter.readthedocs.io/example_conditional_format.html#ex-cond-format
@@ -132,17 +134,20 @@ def export_to_excel(output_path: str = 'default_path', output_filename: str = 'd
             format_green = workbook.add_format({'bg_color': '#C6EFCE', 'font_color': '#006100', 'bold': False})
             
             hdr_col_width_dict = get_header_column_widths(stat_list_of_lists)   # includes both header and cell values in calcuation
-            header_format = workbook.add_format({'bold': True, 'underline': True, 'font_color': 'blue', 'center_across': True})
-            header_format.set_font_size(12)  # default is 11 pt
 
+            xls_font_name = 'Segoe UI'
+            font_pt_size = 11   # default is 11 pt
+            header_format = workbook.add_format({'bold': True, 'underline': True, 'font_color': 'blue', 'center_across': True})
+            header_format.set_font_size(font_pt_size)  
+            header_format.set_font_name(xls_font_name)
+            
             stat_list_of_lists.pop(0)  # remove header row
             for idx, key_hdr in enumerate(hdr_col_width_dict):
                 alpha = ALPHABET[idx]
                 col_width_val = hdr_col_width_dict[key_hdr]
-                worksheet1.set_column('{}:{}'.format(alpha, alpha), col_width_val)
-                worksheet1.write('{}1'.format(alpha), '{}:'.format(key_hdr), header_format)
-              
-            xls_font_name = 'Lucida Console'    
+                worksheet1.set_column(f"{alpha}:{alpha}", col_width_val)  # all rows
+                worksheet1.write(f"{alpha}1", f"{key_hdr}:", header_format)
+            
             centered_cells_int = workbook.add_format()
             centered_cells_int.set_num_format('0')
             centered_cells_int.set_align('vcenter')
@@ -160,7 +165,7 @@ def export_to_excel(output_path: str = 'default_path', output_filename: str = 'd
 
             if (stat_list_of_lists):  # if data after popped header row
                 last_alpha = ALPHABET[len(stat_list_of_lists[0]) - 1]  # last index -1 of len()
-                worksheet1.autofilter('A1:{}65536'.format(last_alpha))
+                worksheet1.autofilter(f"A1:{last_alpha}65536")
                 # A0, B1, C2, D3, E4, F5, G6, H7 = 8 indexed entries
                 row_num = 1  # first row in Excel
                 if (len(stat_list_of_lists) > 0):
@@ -168,15 +173,25 @@ def export_to_excel(output_path: str = 'default_path', output_filename: str = 'd
                         row_num += 1  # not header row
                         for count, tag_val in enumerate(tag_list):
                             alpha = ALPHABET[count]
-                            # print('row_num: {} {} {} idx:{} count:{} tag_val:{}'.format(row_num, alpha, alpha_col_width_dict[alpha], idx, count, str(tag_val)))
-                            worksheet1.write('{}{}'.format(alpha, row_num), str(tag_val), centered_cells)
+                            worksheet1.write(f"{alpha}{row_num}", str(tag_val), centered_cells)
             workbook.close()
-            status_str = "SUCCESS! {}() \n{}".format(def_name, output_filepath)
+            status_str = f"SUCCESS! {def_name}() \n{output_filepath}"
         except (Exception) as exception:
-            status_str = "~!ERROR!~ {}() {}\n{}".format(def_name, sys.exc_info()[0], exception)
+            status_str = f"~!ERROR!~ {def_name}() {sys.exc_info()[0]}\n{exception}"
         finally:
             return status_str
 
+
+transfer_syntaxes = OrderedDict([("1.2.840.10008.1.2",'ImplicitVRLittleEndian'),    # ILE ImplicitVRLittleEndian 
+                               ("1.2.840.10008.1.2.1",'ExplicitVRLittleEndian'),    # ELE ExplicitVRLittleEndian
+                               ("1.2.840.10008.1.2.2",'ExplicitVRBigEndian'),       # EBE ExplicitVRBigEndian
+                               ("1.2.840.10008.1.2.4.50",'JPEGBaselineProcess1'),   # JPG1 JPEGBaselineProcess1
+                               ("1.2.840.10008.1.2.4.51",'JPEGBaselineProcess2'),   # JPG2  JPEGBaselineProcess2
+                               ("1.2.840.10008.1.2.4.57",'JPEGLossless14'),         # JPG14  JPEGLossless14
+                               ("1.2.840.10008.1.2.4.70",'JPEGLossless14FOP'),      # JPG14  JPEGLossless14FOP
+                               ("1.2.840.10008.1.2.4.90",'JPEG2000Lossless'),       # J2KL  JPEG2000LosslessOnly
+                               ("1.2.840.10008.1.2.4.91",'JPEG2000'),               # J2K  JPEG2000
+                               ("1.2.840.10008.1.2.5",'RunLengthEncoding')])        # RLE  RunLengthEncodingLossless
 
 '''
    0002 0016 | sourceApplicationEntityTitle
@@ -214,6 +229,7 @@ def build_fuji_tag_dict(input_filename: str = 'default_filename') -> dict:
     fuji_tag_dict['institutionName'] = '0008 0080'
     fuji_tag_dict['manufacturer'] = '0008 0070'
     fuji_tag_dict['manufacturerModelName'] = '0008 1090'
+    fuji_tag_dict['transferSyntaxUid'] = '0002 0010'
     return fuji_tag_dict
 
 
@@ -228,6 +244,7 @@ def build_dcmtk_tag_dict(input_filename: str = 'default_filename') -> dict:
     dcmtk_tag_dict['institutionName'] = '(0008,0080)'
     dcmtk_tag_dict['manufacturer'] = '(0008,0070)'
     dcmtk_tag_dict['manufacturerModelName'] = '(0008,1090)'
+    dcmtk_tag_dict['transferSyntaxUid'] = '(0002,0010)'
     return dcmtk_tag_dict
 
 
@@ -240,7 +257,7 @@ def is_fuji_tag_dump(txt_file_lines: list = []) -> tuple:
             isFuji = True
         if ('Dicom-Meta-Information-Header' in line_str):
             isDCMTK = True
-        #print("line: '{}'\n   isFuji:{}  isDCMTK: {}".format(line_str[0:48], isFuji, isDCMTK))
+        #print(f"line: '{line_str[0:48]}'\n   isFuji: {isFuji}  isDCMTK: {isDCMTK}")
     return (isFuji, isDCMTK)
 
 
@@ -267,7 +284,7 @@ def get_tag_indices(tag_keywords: list = [], input_lines: list = [], isOptimized
                     tag_indices_dict[tag_keyword] = line_str
     if (DEBUG):
         for tag_key, tag_value in tag_indices_dict.items():
-            print("{}={}".format(tag_key, tag_value))
+            print(f"{tag_key}={tag_value}")
     return tag_indices_dict
 
 
@@ -282,7 +299,7 @@ def check_pathname_skip(input_path: str = 'default_path') -> bool:
 
 def find_files_wext(input_path: str = 'default_path', input_ext: str = '.txt') -> tuple:
     def_name = sys._getframe().f_code.co_name.upper()
-    print("{}({})".format(def_name, input_ext))
+    print(f"{def_name}({input_ext})")
     file_list = []
     file_path_list = []
     # get files, paths for SPECIFIC file extention (including sub-folders)
@@ -294,13 +311,13 @@ def find_files_wext(input_path: str = 'default_path', input_ext: str = '.txt') -
                     if check_pathname_skip(this_file_path):
                         file_list.append(this_file)
                         file_path_list.append(this_file_path)
-        file_path_list.sort(key=lambda x: (-x.count(os.sep), x))
+        file_path_list.sort(key=lambda x: (-x.count(os.sep), x))  # sort based on filename
     return sorted(file_list), file_path_list
 
 
 def parse_dicom_tag_dump(input_headers: list = [], input_folder_path: str = 'default_path') -> list:
     def_name = sys._getframe().f_code.co_name.upper()
-    status_str = "{}() in: '{}'\n".format(def_name, input_folder_path)
+    status_str = f"{def_name}() in: '{input_folder_path}'\n"
     tag_name = 'tagdump'
     source_ext = '.txt'
     filename_list, filepath_list = find_files_wext(input_folder_path, source_ext)
@@ -309,17 +326,17 @@ def parse_dicom_tag_dump(input_headers: list = [], input_folder_path: str = 'def
     output_tag_list = [input_headers]  # first row contains headers
    
     if not filepath_list:
-        error_msg = "~!ERROR!~ missing input files, check input path: \n{}".format(input_folder_path)
+        error_msg = f"~!ERROR!~ missing input files, check input path: \n{input_folder_path}"
         print(error_msg)
     else:
-        print("PARSING: ({}) '{}' files".format(len(filepath_list), source_ext))
+        print(f"PARSING: ({len(filepath_list)}) '{source_ext}' files")
         for this_file in filepath_list:
             file_count += 1
             parsed_file_list = []
             read_file_handle = open(this_file, 'r')
             
             if (tag_name not in this_file):
-                print("   reading_{:03}: {}".format(file_count, this_file))
+                print(f"   reading_{file_count:03}: {this_file}")
                 lines_list = read_file_handle.readlines()
                 
                 # dynamically determine which input file format: based on unique substring in first n-lines
@@ -354,14 +371,14 @@ def parse_dicom_tag_dump(input_headers: list = [], input_folder_path: str = 'def
                                     target_value = line_str.split('"', 1)[1].split('"')[0]
                                     tag_dict[tag_key] = target_value
                         if (DEBUG):
-                            print("tag_{:02} {:24} \t{}  line: {:40} len:{:02} chars".format(tag_num, tag_key, tag_value, line_str, len(line_str)))
+                            print(f"tag_{tag_num:02} {tag_key:24} \t{tag_value}  line: {line_str:40} len:{len(line_str):02} chars")
                         
                     for tag_attribute, parsed_val in tag_dict.items():
                         parsed_file_list.append(parsed_val)
                     output_tag_list.append(parsed_file_list)
                     
             read_file_handle.close()
-        print("EXTRACTION: {} dumps of {} '{}' files".format(dump_count, file_count, source_ext))
+        print(f"EXTRACTION: {dump_count} dumps of {file_count} '{source_ext}' files")
     return output_tag_list
 
 
@@ -371,38 +388,47 @@ def get_cmd_args():
     parser.add_option("-i", "--input", help="input path")
     options, remain = parser.parse_args()
     if options.input is None:
-        input_path = os.path.join(PARENT_PATH, 'input', 'tag_dumps')
+        if (DEMO):
+            input_path = os.path.join(PARENT_PATH, 'input', 'tag_dumps')
+        else:
+            input_path = os.path.join(PARENT_PATH, CURR_DIR, 'tag_dumps_all')
     else:
-        path_head, path_tail = os.path.split(options.input)
-        input_path = os.path.join(path_head, path_tail)
-    print("{}() dumping path:'{}'".format(def_name, input_path))
+        input_path = options.input
+        if (os.path.exists(input_path) and os.path.isdir(input_path)):
+            print(f"{def_name}() dumping path:'{input_path}'")
+        else: 
+            parser.error(f"invalid path: '{input_path}'")
+            input_path = None
     return input_path
     
     
 if __name__ == "__main__":
-    print("{} starting... ".format(SCRIPT_NAME))
+    print(f"{SCRIPT_NAME} starting...")
     start = time.perf_counter()
     print_header()
 
     input_path = get_cmd_args()
     if os.path.exists(input_path):
-        
-        output_path = os.path.join(PARENT_PATH, 'output')
+        if (DEMO):
+            output_path = os.path.join(PARENT_PATH, 'output')
+        else:
+            output_path = os.path.join(PARENT_PATH, CURR_DIR, 'tag_dumps_all')
         if not os.path.exists(output_path):
             os.makedirs(output_path)
             
-        headers = ["filename", "accessionNumber", "modality", "sourceApplicationEntityTitle", "stationName", "institutionName", "manufacturer", "manufacturerModelName"]
+        headers = ["filename", "accessionNumber", "modality", "sourceApplicationEntityTitle", "stationName",
+                   "institutionName", "manufacturer", "manufacturerModelName", "transferSyntaxUid"]
         all_tag_list = parse_dicom_tag_dump(headers, input_path)
 
         curr_date, curr_time = generate_date_str()
-        output_filename = "{}dicom_{}.xlsx".format(TEMP_TAG, 'tag_dumps')
+        output_filename = f"{TEMP_TAG}dicom_tag_dumps.xlsx"
         
         # works on both Linux and Windows
         if (len(all_tag_list) > 1):  # more than just headers
             xls_status = export_to_excel(output_path, output_filename, all_tag_list)
-            print("{}".format(xls_status))
+            print(xls_status)
     else:
-        print("~!ERROR!~ invalid path: {}".format(input_path))
+        print(f"~!ERROR!~ invalid path: {input_path}")
         
     end = time.perf_counter() - start
-    print("{0} finished in {1:0.2f} seconds".format(SCRIPT_NAME, end))
+    print(f"{SCRIPT_NAME} finished in {end:0.2f} seconds")
