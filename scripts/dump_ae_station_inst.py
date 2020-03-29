@@ -1,4 +1,5 @@
 #!python3
+# -*- coding: utf-8 -*-
 from collections import OrderedDict
 import datetime
 import json
@@ -14,7 +15,6 @@ from urllib.error import HTTPError
 from urllib.error import URLError
 from urllib.request import Request
 from urllib.request import urlopen
-import unittest
 import xlsxwriter
 
 
@@ -107,11 +107,11 @@ def get_header_column_widths(input_tag_list: list = []) -> dict:
             max_length = len(cell_val)
             if (hdr_col_width_dict[header] < max_length):
                 if max_length > 10:
-                    max_length *= scalar   
+                    max_length *= scalar
                 hdr_col_width_dict[header] = int(math.ceil(max_length)) + 2  # each char=1, +2 for readability
     if (VERBOSE):
         print("\nDynamically sized columns widths:")
-        for key, value in hdr_col_width_dict.items():
+        for (key, value) in hdr_col_width_dict.items():
             print(f"   {key:28} \t {value} chars")
     return hdr_col_width_dict
 
@@ -120,25 +120,26 @@ def export_to_excel(output_path: str = 'default_path', output_filename: str = 'd
     def_name = sys._getframe().f_code.co_name.upper()
     status_str = f"{def_name}() in: '{output_path}'\n"
     print(status_str)
-    if (len(stat_list_of_lists) > 0): 
+    if (len(stat_list_of_lists) > 0):
         try:
             file_basename, file_ext = output_filename.split('.')
             output_filepath = os.path.join(output_path, output_filename)
             workbook = xlsxwriter.Workbook(f"{output_filepath}")
             worksheet1 = workbook.add_worksheet(file_basename[:MAX_EXCEL_TAB])  # <= 31 chars
             worksheet1.freeze_panes(1, 0)
+            
             # https://xlsxwriter.readthedocs.io/example_conditional_format.html#ex-cond-format
             # add formating: light red fill with dark red text
-            format_red = workbook.add_format({'bg_color': '#FFC7CE', 'font_color': '#9C0006', 'bold': False})
+            # format_red = workbook.add_format({'bg_color': '#FFC7CE', 'font_color': '#9C0006', 'bold': False})
             # add formating: green fill with dark green text
-            format_green = workbook.add_format({'bg_color': '#C6EFCE', 'font_color': '#006100', 'bold': False})
+            # format_green = workbook.add_format({'bg_color': '#C6EFCE', 'font_color': '#006100', 'bold': False})
             
             hdr_col_width_dict = get_header_column_widths(stat_list_of_lists)   # includes both header and cell values in calcuation
 
             xls_font_name = 'Segoe UI'
             font_pt_size = 11   # default is 11 pt
             header_format = workbook.add_format({'bold': True, 'underline': True, 'font_color': 'blue', 'center_across': True})
-            header_format.set_font_size(font_pt_size)  
+            header_format.set_font_size(font_pt_size)
             header_format.set_font_name(xls_font_name)
             
             stat_list_of_lists.pop(0)  # remove header row
@@ -182,16 +183,17 @@ def export_to_excel(output_path: str = 'default_path', output_filename: str = 'd
             return status_str
 
 
-transfer_syntaxes = OrderedDict([("1.2.840.10008.1.2",'ImplicitVRLittleEndian'),    # ILE ImplicitVRLittleEndian 
-                               ("1.2.840.10008.1.2.1",'ExplicitVRLittleEndian'),    # ELE ExplicitVRLittleEndian
-                               ("1.2.840.10008.1.2.2",'ExplicitVRBigEndian'),       # EBE ExplicitVRBigEndian
-                               ("1.2.840.10008.1.2.4.50",'JPEGBaselineProcess1'),   # JPG1 JPEGBaselineProcess1
-                               ("1.2.840.10008.1.2.4.51",'JPEGBaselineProcess2'),   # JPG2  JPEGBaselineProcess2
-                               ("1.2.840.10008.1.2.4.57",'JPEGLossless14'),         # JPG14  JPEGLossless14
-                               ("1.2.840.10008.1.2.4.70",'JPEGLossless14FOP'),      # JPG14  JPEGLossless14FOP
-                               ("1.2.840.10008.1.2.4.90",'JPEG2000Lossless'),       # J2KL  JPEG2000LosslessOnly
-                               ("1.2.840.10008.1.2.4.91",'JPEG2000'),               # J2K  JPEG2000
-                               ("1.2.840.10008.1.2.5",'RunLengthEncoding')])        # RLE  RunLengthEncodingLossless
+transfer_syntaxes = OrderedDict([("1.2.840.10008.1.2", 'ImplicitVRLittleEndian'),    # ILE ImplicitVRLittleEndian
+                               ("1.2.840.10008.1.2.1", 'ExplicitVRLittleEndian'),    # ELE ExplicitVRLittleEndian
+                               ("1.2.840.10008.1.2.2", 'ExplicitVRBigEndian'),       # EBE ExplicitVRBigEndian
+                               ("1.2.840.10008.1.2.4.50", 'JPEGBaselineProcess1'),   # JPG1 JPEGBaselineProcess1
+                               ("1.2.840.10008.1.2.4.51", 'JPEGBaselineProcess2'),   # JPG2  JPEGBaselineProcess2
+                               ("1.2.840.10008.1.2.4.57", 'JPEGLossless14'),         # JPG14  JPEGLossless14
+                               ("1.2.840.10008.1.2.4.70", 'JPEGLossless14FOP'),      # JPG14  JPEGLossless14FOP
+                               ("1.2.840.10008.1.2.4.90", 'JPEG2000Lossless'),       # J2KL  JPEG2000LosslessOnly
+                               ("1.2.840.10008.1.2.4.91", 'JPEG2000'),               # J2K  JPEG2000
+                               ("1.2.840.10008.1.2.5", 'RunLengthEncoding')])        # RLE  RunLengthEncodingLossless
+
 
 '''
    0002 0016 | sourceApplicationEntityTitle
@@ -252,12 +254,12 @@ def is_fuji_tag_dump(txt_file_lines: list = []) -> tuple:
     isFuji = False
     isDCMTK = False
     # check only first n-lines of input file for unique substring match
-    for line_str in txt_file_lines[0:5]: 
+    for line_str in txt_file_lines[0:5]:
         if ('Grp  Elmt | Description' in line_str):
             isFuji = True
         if ('Dicom-Meta-Information-Header' in line_str):
             isDCMTK = True
-        #print(f"line: '{line_str[0:48]}'\n   isFuji: {isFuji}  isDCMTK: {isDCMTK}")
+        # print(f"line: '{line_str[0:48]}'\n   isFuji: {isFuji}  isDCMTK: {isDCMTK}")
     return (isFuji, isDCMTK)
 
 
@@ -318,6 +320,7 @@ def find_files_wext(input_path: str = 'default_path', input_ext: str = '.txt') -
 def parse_dicom_tag_dump(input_headers: list = [], input_folder_path: str = 'default_path') -> list:
     def_name = sys._getframe().f_code.co_name.upper()
     status_str = f"{def_name}() in: '{input_folder_path}'\n"
+    print(status_str)
     tag_name = 'tagdump'
     source_ext = '.txt'
     filename_list, filepath_list = find_files_wext(input_folder_path, source_ext)
@@ -396,7 +399,7 @@ def get_cmd_args():
         input_path = options.input
         if (os.path.exists(input_path) and os.path.isdir(input_path)):
             print(f"{def_name}() dumping path:'{input_path}'")
-        else: 
+        else:
             parser.error(f"invalid path: '{input_path}'")
             input_path = None
     return input_path
