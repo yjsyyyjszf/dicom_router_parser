@@ -3,11 +3,11 @@
 from collections import OrderedDict
 import datetime
 import json
-import locale
+import locale as loc
 import math
 import optparse
 import os
-import platform
+import platform as p
 import string
 import sys
 import time
@@ -20,18 +20,20 @@ import xlsxwriter
 
 BASE_DIR, SCRIPT_NAME = os.path.split(os.path.abspath(__file__))
 PARENT_PATH, CURR_DIR = os.path.split(BASE_DIR)
+IS_WINDOWS = sys.platform.startswith('win')
 
 DEBUG = False
 VERBOSE = False
-DEMO = True
+DEMO_ENABLED = True
 
 
 def get_isp_info() -> str:
+    """Get current ISP information of connected host"""
     isp_req = Request('http://ipinfo.io/json')
     try:
         response = urlopen(isp_req)
     except HTTPError as exception:
-        print('HTTPError code: ', exception.code)
+        print(f"HTTPError code: {exception.code}")
     except URLError as exception:
         print(f"\nERROR: {sys.exc_info()[0]} {exception}")
         return exception.reason
@@ -40,18 +42,21 @@ def get_isp_info() -> str:
     return info_str
 
 
-__author__ = "Emile Averill"
+__author__ = "averille"
 __email__ = "github.pdx@runbox.com"
 __status__ = "demo"
 __license__ = "MIT"
-__version__ = "1.2.6"
-__python_version__ = f"{platform.python_version()}"
-__host_architecture__ = f"{platform.system()} {platform.architecture()[0]} {platform.machine()}"
-__script_encoding__ = f"{SCRIPT_NAME:26} ({str(sys.getfilesystemencoding()).upper()})"
-__host_info__ = f"{platform.node():26} ({locale.getpreferredencoding()}) {__host_architecture__:16}"
+__version__ = "1.2.7"
+__login_user__ = os.getlogin()
+__python_version__ = f"{p.python_version()}"
+__host_arch__ = f"{p.system()} {p.architecture()[0]} {p.machine()}"
+__sys_encoding__ = str(sys.getfilesystemencoding()).upper()
+__script_encoding__ = f"{SCRIPT_NAME:26} ({__sys_encoding__})"
+__host_info__ = f"{p.node():26} ({loc.getpreferredencoding()}) {__host_arch__:16}"
 __header__ = f"""  license: \t{__license__}
   python:  \t{__python_version__}
   host:    \t{__host_info__}
+  login:   \t{__login_user__}
   script:  \t{__script_encoding__}
   author:  \t{__author__}
   email:   \t{__email__}
@@ -62,6 +67,7 @@ __header__ = f"""  license: \t{__license__}
 
 
 def print_header() -> None:
+    """Display project status, host characteristics, and ISP information"""
     print(__header__)
 
 
@@ -70,7 +76,7 @@ MAX_EXCEL_TAB_DIR = 27
 MAX_EXCEL_TAB = 31
 TEMP_TAG = '~'
 ALPHABET = string.ascii_uppercase
-valid_chars = f"-_.()~{string.ascii_letters}{string.digits}"
+valid_chars = f"-_.()~{ALPHABET}{string.digits}"
 
 AVOID_DIRS = []
 AVOID_DIRS.append('.git')
@@ -79,9 +85,10 @@ AVOID_DIRS.append('venv')
 AVOID_DIRS.append('__pycache__')
 
 
-def sanitize_input(input_str: str = 'default'):
+def sanitize_input(input_str: str='default'):
+    """strips invalid characters from string"""
     sanitized = input_str
-    invalid_chars = "{}[]()<>^#+*?$@&%$!,:;/\\ "  # keep - and .
+    invalid_chars = "{}[]()<>^#+*?$@&%$!,:;/\\ "   # keep '-' and '.'
     sanitized = sanitized.replace("-", "")
     for char in invalid_chars:
         if char in input_str:
@@ -90,17 +97,19 @@ def sanitize_input(input_str: str = 'default'):
 
 
 def generate_date_str() -> tuple:
+    """Creates string based on current timestamp"""
     now = datetime.datetime.now()
     date = now.strftime("%m-%d-%Y")
     time = now.strftime("%H%M%p").lower()
     return (date, time)
 
 
-def get_header_column_widths(input_tag_list: list = []) -> dict:
-    # list of lists: [row1:[hdr1, hdr2, ..., hdrN], row2:[data1, data2, ..., dataN]... rowN]
+def get_header_column_widths(input_tag_list: list) -> dict:
+    """Returns dynamically sized columns widths based on length of cell values"""
+    # list of lists: [row1:[hdr1, ..., hdrN], row2:[data1, ..., dataN]... rowN]
     headers = list(input_tag_list[0])
     scalar = 1.2  # account for presentations difference in Excel based on font
-    hdr_col_width_dict = OrderedDict([(hdr, -1) for hdr in headers])  # init to -1
+    hdr_col_width_dict = OrderedDict([(hdr, -1) for hdr in headers])  # init -1
     for row_num, tag_list in enumerate(input_tag_list):
         for col_num, cell_val in enumerate(tag_list):
             header = headers[col_num]
@@ -108,93 +117,92 @@ def get_header_column_widths(input_tag_list: list = []) -> dict:
             if (hdr_col_width_dict[header] < max_length):
                 if max_length > 10:
                     max_length *= scalar
-                hdr_col_width_dict[header] = int(math.ceil(max_length)) + 2  # each char=1, +2 for readability
+                # each char=1, +2 for readability
+                hdr_col_width_dict[header] = int(math.ceil(max_length)) + 2
     if (VERBOSE):
-        print("\nDynamically sized columns widths:")
+        print("\ndynamically sized columns widths:")
         for (key, value) in hdr_col_width_dict.items():
             print(f"   {key:28} \t {value} chars")
     return hdr_col_width_dict
 
 
-def export_to_excel(output_path: str = 'default_path', output_filename: str = 'default_filename', stat_list_of_lists: list = []) -> str:
+def export_to_excel(output_path: str, filename: str, stat_list: list) -> str:
+    """Exports DICOM tag data into output Excel report file with markup"""
     def_name = sys._getframe().f_code.co_name.upper()
     status_str = f"{def_name}() in: '{output_path}'\n"
     print(status_str)
-    if (len(stat_list_of_lists) > 0):
+    if (len(stat_list) > 0):
         try:
-            file_basename, file_ext = output_filename.split('.')
-            output_filepath = os.path.join(output_path, output_filename)
+            file_basename, file_ext = filename.split('.')
+            output_filepath = os.path.join(output_path, filename)
             workbook = xlsxwriter.Workbook(f"{output_filepath}")
-            worksheet1 = workbook.add_worksheet(file_basename[:MAX_EXCEL_TAB])  # <= 31 chars
-            worksheet1.freeze_panes(1, 0)
-            
+            ws1 = workbook.add_worksheet(file_basename[:MAX_EXCEL_TAB])  # <= 31 chars
+            ws1.freeze_panes(1, 0)
+
             # https://xlsxwriter.readthedocs.io/example_conditional_format.html#ex-cond-format
             # add formating: light red fill with dark red text
             # format_red = workbook.add_format({'bg_color': '#FFC7CE', 'font_color': '#9C0006', 'bold': False})
             # add formating: green fill with dark green text
             # format_green = workbook.add_format({'bg_color': '#C6EFCE', 'font_color': '#006100', 'bold': False})
-            
-            hdr_col_width_dict = get_header_column_widths(stat_list_of_lists)   # includes both header and cell values in calcuation
 
+            # includes both header and cell values in calcuation
+            hdr_col_width_dict = get_header_column_widths(stat_list)
             xls_font_name = 'Segoe UI'
             font_pt_size = 11   # default is 11 pt
-            header_format = workbook.add_format({'bold': True, 'underline': True, 'font_color': 'blue', 'center_across': True})
+            header_format = workbook.add_format({'bold': True,
+                                                 'underline': True,
+                                                 'font_color': 'blue',
+                                                 'center_across': True})
             header_format.set_font_size(font_pt_size)
             header_format.set_font_name(xls_font_name)
-            
-            stat_list_of_lists.pop(0)  # remove header row
+            stat_list.pop(0)  # remove header row
             for idx, key_hdr in enumerate(hdr_col_width_dict):
                 alpha = ALPHABET[idx]
                 col_width_val = hdr_col_width_dict[key_hdr]
-                worksheet1.set_column(f"{alpha}:{alpha}", col_width_val)  # all rows
-                worksheet1.write(f"{alpha}1", f"{key_hdr}:", header_format)
-            
-            centered_cells_int = workbook.add_format()
-            centered_cells_int.set_num_format('0')
-            centered_cells_int.set_align('vcenter')
-            centered_cells_int.set_align('center')
-            centered_cells = workbook.add_format()
-            centered_cells.set_align('vcenter')
-            centered_cells.set_align('center')
-            centered_cells.set_font_name(xls_font_name)
-             
-            date_cell_format = workbook.add_format()
-            date_cell_format.set_num_format('mm/dd/yy hh:mm AM/PM')
-            date_cell_format.set_align('vcenter')
-            date_cell_format.set_align('center')
-            date_cell_format.set_font_name(xls_font_name)
-
-            if (stat_list_of_lists):  # if data after popped header row
-                last_alpha = ALPHABET[len(stat_list_of_lists[0]) - 1]  # last index -1 of len()
-                worksheet1.autofilter(f"A1:{last_alpha}65536")
+                ws1.set_column(f"{alpha}:{alpha}", col_width_val)  # all rows
+                ws1.write(f"{alpha}1", f"{key_hdr}:", header_format)
+            ctr_int = workbook.add_format()
+            ctr_int.set_num_format('0')
+            ctr_int.set_align('vcenter')
+            ctr_int.set_align('center')
+            ctr_txt = workbook.add_format()
+            ctr_txt.set_align('vcenter')
+            ctr_txt.set_align('center')
+            ctr_txt.set_font_name(xls_font_name)
+            ctr_date = workbook.add_format()
+            ctr_date.set_num_format('mm/dd/yy hh:mm AM/PM')
+            ctr_date.set_align('vcenter')
+            ctr_date.set_align('center')
+            ctr_date.set_font_name(xls_font_name)
+            if (stat_list):  # if data after popped header row
+                last_alpha = ALPHABET[len(stat_list[0]) - 1]  # last index -1 of len()
+                ws1.autofilter(f"A1:{last_alpha}65536")
                 # A0, B1, C2, D3, E4, F5, G6, H7 = 8 indexed entries
                 row_num = 1  # first row in Excel
-                if (len(stat_list_of_lists) > 0):
-                    for idx, tag_list in enumerate(stat_list_of_lists):
+                if (len(stat_list) > 0):
+                    for idx, tag_list in enumerate(stat_list):
                         row_num += 1  # not header row
                         for count, tag_val in enumerate(tag_list):
                             alpha = ALPHABET[count]
-                            worksheet1.write(f"{alpha}{row_num}", str(tag_val), centered_cells)
+                            ws1.write(f"{alpha}{row_num}", str(tag_val), ctr_txt)
             workbook.close()
             status_str = f"SUCCESS! {def_name}() \n{output_filepath}"
-        except (Exception) as exception:
-            status_str = f"~!ERROR!~ {def_name}() {sys.exc_info()[0]}\n{exception}"
+        except Exception as exp:
+            status_str = f"~!ERROR!~ {def_name}() {sys.exc_info()[0]}\n{exp}"
         finally:
             return status_str
 
 
-transfer_syntaxes = OrderedDict([("1.2.840.10008.1.2", 'ImplicitVRLittleEndian'),    # ILE ImplicitVRLittleEndian
-                               ("1.2.840.10008.1.2.1", 'ExplicitVRLittleEndian'),    # ELE ExplicitVRLittleEndian
-                               ("1.2.840.10008.1.2.2", 'ExplicitVRBigEndian'),       # EBE ExplicitVRBigEndian
-                               ("1.2.840.10008.1.2.4.50", 'JPEGBaselineProcess1'),   # JPG1 JPEGBaselineProcess1
-                               ("1.2.840.10008.1.2.4.51", 'JPEGBaselineProcess2'),   # JPG2  JPEGBaselineProcess2
-                               ("1.2.840.10008.1.2.4.57", 'JPEGLossless14'),         # JPG14  JPEGLossless14
-                               ("1.2.840.10008.1.2.4.70", 'JPEGLossless14FOP'),      # JPG14  JPEGLossless14FOP
-                               ("1.2.840.10008.1.2.4.90", 'JPEG2000Lossless'),       # J2KL  JPEG2000LosslessOnly
-                               ("1.2.840.10008.1.2.4.91", 'JPEG2000'),               # J2K  JPEG2000
-                               ("1.2.840.10008.1.2.5", 'RunLengthEncoding')])        # RLE  RunLengthEncodingLossless
-
-
+transfer_syntaxes = OrderedDict([("1.2.840.10008.1.2", 'ImplicitVRLittleEndian'),     # ILE
+                                 ("1.2.840.10008.1.2.1", 'ExplicitVRLittleEndian'),   # ELE
+                                 ("1.2.840.10008.1.2.2", 'ExplicitVRBigEndian'),      # EBE
+                                 ("1.2.840.10008.1.2.4.50", 'JPEGBaselineProcess1'),  # JPG1
+                                 ("1.2.840.10008.1.2.4.51", 'JPEGBaselineProcess2'),  # JPG2
+                                 ("1.2.840.10008.1.2.4.57", 'JPEGLossless14'),        # JPG14
+                                 ("1.2.840.10008.1.2.4.70", 'JPEGLossless14FOP'),     # JPG14FOP
+                                 ("1.2.840.10008.1.2.4.90", 'JPEG2000Lossless'),      # J2KL
+                                 ("1.2.840.10008.1.2.4.91", 'JPEG2000'),              # J2K
+                                 ("1.2.840.10008.1.2.5", 'RunLengthEncoding')])       # RLE
 '''
    0002 0016 | sourceApplicationEntityTitle
    0008 0050 | accessionNumber
@@ -221,7 +229,8 @@ example:   (0008,0060) CS [CT]         #   2, 1 Modality
 
 
 # tag: (0008,0050) is represented as '0008 0050' for FUJI sourced files
-def build_fuji_tag_dict(input_filename: str = 'default_filename') -> dict:
+def build_fuji_tag_dict(input_filename: str='default') -> dict:
+    """Creates mapping of Fuji tag names to values"""
     fuji_tag_dict = OrderedDict()
     fuji_tag_dict['filename'] = input_filename
     fuji_tag_dict['accessionNumber'] = '0008 0050'
@@ -236,7 +245,8 @@ def build_fuji_tag_dict(input_filename: str = 'default_filename') -> dict:
 
 
 # tag: (0008,0050) is represented as '(0008,0050)' for DCMTK sourced files
-def build_dcmtk_tag_dict(input_filename: str = 'default_filename') -> dict:
+def build_dcmtk_tag_dict(input_filename: str='default') -> dict:
+    """Creates mapping of DCTCK tag names to values"""
     dcmtk_tag_dict = OrderedDict()
     dcmtk_tag_dict['filename'] = input_filename
     dcmtk_tag_dict['accessionNumber'] = '(0008,0050)'
@@ -250,7 +260,8 @@ def build_dcmtk_tag_dict(input_filename: str = 'default_filename') -> dict:
     return dcmtk_tag_dict
 
 
-def is_fuji_tag_dump(txt_file_lines: list = []) -> tuple:
+def is_fuji_tag_dump(txt_file_lines: list) -> tuple:
+    """Dynamically determines if input orf Fuji or DCMTK"""
     isFuji = False
     isDCMTK = False
     # check only first n-lines of input file for unique substring match
@@ -259,47 +270,49 @@ def is_fuji_tag_dump(txt_file_lines: list = []) -> tuple:
             isFuji = True
         if ('Dicom-Meta-Information-Header' in line_str):
             isDCMTK = True
-        # print(f"line: '{line_str[0:48]}'\n   isFuji: {isFuji}  isDCMTK: {isDCMTK}")
     return (isFuji, isDCMTK)
 
 
-def get_tag_line_number(tag_keyword: str = '(0008,0020)', input_lines: list = []) -> int:
-    # optimization: stop iterating once index to tag_keyword is located
+def get_tag_line_number(tag_keyword: str='(0008,0020)', lines: list=[]) -> int:
+    """Optimization: stop iterating once index to tag_keyword is located"""
     # using tag_keyword '(0008,0050)' or '0008 0050'
-    return next((line_num for line_num, string in enumerate(input_lines) if tag_keyword in string), -1)
     # if tag_keyword not in input_lines, return -1.
+    return next((line_num for line_num, string in enumerate(lines)
+                 if tag_keyword in string), -1)
 
 
-def get_tag_indices(tag_keywords: list = [], input_lines: list = [], isOptimized: bool = True) -> dict:
-    tag_indices_dict = OrderedDict([(hdr, '') for hdr in tag_keywords])
+def get_tag_indices(tags: list, lines: list, isOptimized: bool=True) -> dict:
+    """interates through lines to find desired DICOM tags"""
+    tag_indices_dict = OrderedDict([(hdr, '') for hdr in tags])
     # using tag_keyword '(0008,0050)' or '0008 0050'
     if (isOptimized):
-        for tag_keyword in tag_keywords:
-            line_num = get_tag_line_number(tag_keyword, input_lines)
+        for tag_keyword in tags:
+            line_num = get_tag_line_number(tag_keyword, lines)
             if (line_num != -1):
-                tag_indices_dict[tag_keyword] = input_lines[line_num]
+                tag_indices_dict[tag_keyword] = lines[line_num]
     else:
-        # interate through all lines in list to find desired tags
-        for line_num, line_str in enumerate(input_lines):
+        for line_num, line_str in enumerate(lines):
             for tag_keyword in tag_keywords:
                 if (tag_keyword in line_str):
                     tag_indices_dict[tag_keyword] = line_str
-    if (DEBUG):
+    if DEBUG:
         for tag_key, tag_value in tag_indices_dict.items():
             print(f"{tag_key}={tag_value}")
     return tag_indices_dict
 
 
-def check_pathname_skip(input_path: str = 'default_path') -> bool:
-    if (input_path):
+def check_pathname_skip(input_path: str='default') -> bool:
+    """Returns true if input path is not in any directorys to avoid"""
+    if input_path:
         path_hit = next((s for s in AVOID_DIRS if s in input_path), True)
-        if (path_hit):
+        if path_hit:
             return True
         else:
             return False
 
 
-def find_files_wext(input_path: str = 'default_path', input_ext: str = '.txt') -> tuple:
+def find_files_wext(input_path: str='default', input_ext: str='.txt') -> tuple:
+    """Get files, paths for specific file extention (including sub-folders)"""
     def_name = sys._getframe().f_code.co_name.upper()
     print(f"{def_name}({input_ext})")
     file_list = []
@@ -313,23 +326,24 @@ def find_files_wext(input_path: str = 'default_path', input_ext: str = '.txt') -
                     if check_pathname_skip(this_file_path):
                         file_list.append(this_file)
                         file_path_list.append(this_file_path)
-        file_path_list.sort(key=lambda x: (-x.count(os.sep), x))  # sort based on filename
+        # sort based on filename
+        file_path_list.sort(key=lambda x: (-x.count(os.sep), x))
     return sorted(file_list), file_path_list
 
 
-def parse_dicom_tag_dump(input_headers: list = [], input_folder_path: str = 'default_path') -> list:
+def parse_dicom_tag_dump(input_headers: list, input_path: str) -> list:
+    """Parse DICOM desired tag data from input .txt files"""
     def_name = sys._getframe().f_code.co_name.upper()
-    status_str = f"{def_name}() in: '{input_folder_path}'\n"
+    status_str = f"{def_name}() in: '{input_path}'\n"
     print(status_str)
     tag_name = 'tagdump'
     source_ext = '.txt'
-    filename_list, filepath_list = find_files_wext(input_folder_path, source_ext)
+    filename_list, filepath_list = find_files_wext(input_path, source_ext)
     file_count = 0
     dump_count = 0
     output_tag_list = [input_headers]  # first row contains headers
-   
     if not filepath_list:
-        error_msg = f"~!ERROR!~ missing input files, check input path: \n{input_folder_path}"
+        error_msg = f"~!ERROR!~ missing files, check path: \n{input_path}"
         print(error_msg)
     else:
         print(f"PARSING: ({len(filepath_list)}) '{source_ext}' files")
@@ -337,61 +351,60 @@ def parse_dicom_tag_dump(input_headers: list = [], input_folder_path: str = 'def
             file_count += 1
             parsed_file_list = []
             read_file_handle = open(this_file, 'r')
-            
             if (tag_name not in this_file):
                 print(f"   reading_{file_count:03}: {this_file}")
                 lines_list = read_file_handle.readlines()
-                
-                # dynamically determine which input file format: based on unique substring in first n-lines
+                # dynamically determine which input file format:
                 (isFuji, isDCMTK) = is_fuji_tag_dump(lines_list[0:5])
                 if (isFuji):
-                    target_element_dict = build_fuji_tag_dict(this_file)
+                    elements = build_fuji_tag_dict(this_file)
                 elif (isDCMTK):
-                    target_element_dict = build_dcmtk_tag_dict(this_file)
+                    elements = build_dcmtk_tag_dict(this_file)
                 else:
-                    target_element_dict = None  # input '.txt' is not a tag dump
-
-                if (target_element_dict):
+                    elements = None  # input '.txt' not a tag dump
+                if (elements):
                     # re-initializes output dict for each file to blank values
-                    tag_dict = OrderedDict([(hdr, '') for hdr in list(target_element_dict.keys())])
+                    tag_dict = OrderedDict([(hdr, '')
+                                           for hdr in list(elements.keys())])
                     path_head, path_tail = os.path.split(this_file)
                     tag_dict['filename'] = path_tail
-                    
                     # using values: tag '(0008,0050)' or '0008 0050'
-                    tag_indices = get_tag_indices(list(target_element_dict.values()), lines_list)
+                    tag_indices = get_tag_indices(list(elements.values()), lines_list)
                     tag_num = 0
                     dump_count += 1
-                    for tag_key, tag_value in target_element_dict.items():
+                    for tag_key, tag_value in elements.items():
                         tag_num += 1
                         line_str = tag_indices[tag_value]
                         if (len(tag_indices) > 0):
                             if (isDCMTK):
-                                if '[' in line_str:  # get value between square brackets [..]
+                                # parse value between square brackets [..]
+                                if '[' in line_str:
                                     target_value = line_str.split('[', 1)[1].split(']')[0]
                                     tag_dict[tag_key] = target_value
                             elif (isFuji):
-                                if '"' in line_str:  # get value between double quotes "..."
+                                # parse value between double quotes "..."
+                                if '"' in line_str:
                                     target_value = line_str.split('"', 1)[1].split('"')[0]
                                     tag_dict[tag_key] = target_value
                         if (DEBUG):
-                            print(f"tag_{tag_num:02} {tag_key:24} \t{tag_value}  line: {line_str:40} len:{len(line_str):02} chars")
-                        
+                            print(f"tag_{tag_num:02} {tag_key:24} \t{tag_value}\
+                              line: {line_str:40} len:{len(line_str):02} chars")
                     for tag_attribute, parsed_val in tag_dict.items():
                         parsed_file_list.append(parsed_val)
                     output_tag_list.append(parsed_file_list)
-                    
             read_file_handle.close()
         print(f"EXTRACTION: {dump_count} dumps of {file_count} '{source_ext}' files")
     return output_tag_list
 
 
 def get_cmd_args():
+    """command line input on directory to scan recursively for media files"""
     def_name = sys._getframe().f_code.co_name.upper()
     parser = optparse.OptionParser()
     parser.add_option("-i", "--input", help="input path")
     options, remain = parser.parse_args()
     if options.input is None:
-        if (DEMO):
+        if DEMO_ENABLED:
             input_path = os.path.join(PARENT_PATH, 'input', 'tag_dumps')
         else:
             input_path = os.path.join(PARENT_PATH, CURR_DIR, 'tag_dumps_all')
@@ -403,35 +416,31 @@ def get_cmd_args():
             parser.error(f"invalid path: '{input_path}'")
             input_path = None
     return input_path
-    
-    
+
+
 if __name__ == "__main__":
     print(f"{SCRIPT_NAME} starting...")
     start = time.perf_counter()
     print_header()
-
     input_path = get_cmd_args()
     if os.path.exists(input_path):
-        if (DEMO):
+        if DEMO_ENABLED:
             output_path = os.path.join(PARENT_PATH, 'output')
         else:
             output_path = os.path.join(PARENT_PATH, CURR_DIR, 'tag_dumps_all')
         if not os.path.exists(output_path):
             os.makedirs(output_path)
-            
-        headers = ["filename", "accessionNumber", "modality", "sourceApplicationEntityTitle", "stationName",
-                   "institutionName", "manufacturer", "manufacturerModelName", "transferSyntaxUid"]
+        headers = ["filename", "accessionNumber", "modality",
+                   "sourceApplicationEntityTitle", "stationName", "institutionName",
+                   "manufacturer", "manufacturerModelName", "transferSyntaxUid"]
         all_tag_list = parse_dicom_tag_dump(headers, input_path)
-
         curr_date, curr_time = generate_date_str()
-        output_filename = f"{TEMP_TAG}dicom_tag_dumps.xlsx"
-        
-        # works on both Linux and Windows
+        filename = f"{TEMP_TAG}dicom_tag_dumps.xlsx"
+        # works on both linux and windows
         if (len(all_tag_list) > 1):  # more than just headers
-            xls_status = export_to_excel(output_path, output_filename, all_tag_list)
+            xls_status = export_to_excel(output_path, filename, all_tag_list)
             print(xls_status)
     else:
         print(f"~!ERROR!~ invalid path: {input_path}")
-        
     end = time.perf_counter() - start
     print(f"{SCRIPT_NAME} finished in {end:0.2f} seconds")
