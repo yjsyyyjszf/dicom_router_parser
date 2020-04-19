@@ -1,4 +1,3 @@
-
 # Dicom-File-Format
 
 # Dicom-Meta-Information-Header

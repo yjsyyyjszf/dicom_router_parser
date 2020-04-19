@@ -1,5 +1,3 @@
-D:\ImageRepository\images\multi-2k-dcm\multi-2K\TG18-BR\TG18-BR-2k-01.dcm	 image_count: 1	 folder_size: 24.01 MB
-
 # Dicom-File-Format
 
 # Dicom-Meta-Information-Header

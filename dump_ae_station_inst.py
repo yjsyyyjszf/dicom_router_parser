@@ -1,6 +1,7 @@
 #!python3
 # -*- coding: utf-8 -*-
 from collections import OrderedDict
+import inspect
 import math
 import optparse
 import os
@@ -10,6 +11,8 @@ import time
 import xlsxwriter
 from custom_lib import config
 from custom_lib import file_tools
+from custom_lib import dicom_tools
+
 
 BASE_DIR, SCRIPT_NAME = os.path.split(os.path.abspath(__file__))
 PARENT_PATH, CURR_DIR = os.path.split(BASE_DIR)
@@ -18,7 +21,7 @@ IS_WINDOWS = sys.platform.startswith('win')
 MAX_EXCEL_TAB_NODATE = 22  # '_12212019' = 9 chars
 MAX_EXCEL_TAB_DIR = 27
 MAX_EXCEL_TAB = 31
-TEMP_TAG = '~'
+
 ALPHABET = string.ascii_uppercase
 valid_chars = f"-_.()~{ALPHABET}{string.digits}"
 
@@ -26,7 +29,7 @@ valid_chars = f"-_.()~{ALPHABET}{string.digits}"
 def get_header_column_widths(input_tag_list: list) -> dict:
     """Returns dynamically sized column widths based on cell values"""
     # list: [row1:[hdr1, ..., hdrN], row2:[data1, ..., dataN]... rowN]
-    headers_ = list(input_tag_list[0])
+    headers = list(input_tag_list[0])
     scalar = 1.2  # account for presentations difference
     hdr_col_width_dict = OrderedDict([(hdr, -1) for hdr in headers])
     for row_num, tag_list in enumerate(input_tag_list):
@@ -47,7 +50,7 @@ def get_header_column_widths(input_tag_list: list) -> dict:
 
 def export_to_excel(output_path: str, filename: str, stat_list: list) -> str:
     """Exports DICOM tag data into output Excel report file with markup"""
-    def_name = sys._getframe().f_code.co_name.upper()
+    def_name = inspect.currentframe().f_code.co_name
     status_str = f"{def_name}() in: '{output_path}'\n"
     print(status_str)
     if len(stat_list) > 0:
@@ -124,83 +127,15 @@ def export_to_excel(output_path: str, filename: str, stat_list: list) -> str:
             return status_str
 
 
-transfer_syntax = OrderedDict(
-    [("1.2.840.10008.1.2", 'ImplicitVRLittleEndian'),  # ILE
-     ("1.2.840.10008.1.2.1", 'ExplicitVRLittleEndian'),  # ELE
-     ("1.2.840.10008.1.2.2", 'ExplicitVRBigEndian'),  # EBE
-     ("1.2.840.10008.1.2.4.50", 'JPEGBaselineProcess1'),  # JPG1
-     ("1.2.840.10008.1.2.4.51", 'JPEGBaselineProcess2'),  # JPG2
-     ("1.2.840.10008.1.2.4.57", 'JPEGLossless14'),  # JPG14
-     ("1.2.840.10008.1.2.4.70", 'JPEGLossless14FOP'),  # JPG14FOP
-     ("1.2.840.10008.1.2.4.90", 'JPEG2000Lossless'),  # J2KL
-     ("1.2.840.10008.1.2.4.91", 'JPEG2000'),  # J2K
-     ("1.2.840.10008.1.2.5", 'RunLengthEncoding')])  # RLE
-'''
-   0002 0016 | sourceApplicationEntityTitle
-   0008 0050 | accessionNumber
-   0008 0060 | modality
-   0008 1010 | stationName
-   0008 0080 | institutionName
-   0008 0070 | manufacturer
-   0008 1090 | manufacturerModelName
-
-http://dicomlookup.com/default.asp
-http://dicom.nema.org/dicom/2013/output/chtml/part05/sect_6.2.html
-'CS' refers to the value representation: Code String 16 bytes max
-
-FUJI:  vertical bars | or ---- present in each line
-key: tag with no parentheses or comma '#### ####'
-value: between double quotes "..."
-example:   0008 0060 | modality       | CS |     1 | "CR"
-
-DCMTK:  number sign # present in each line
-key: between (####,####)
-value: between square brackets [...]
-example:   (0008,0060) CS [CT]         #   2, 1 Modality
-'''
-
-
-# tag: (0008,0050) is represented as '0008 0050' for FUJI sourced files
-def build_fuji_tag_dict(input_filename: str = 'default') -> dict:
-    """Creates mapping of Fuji tag names to values"""
-    fuji_tag_dict = OrderedDict()
-    fuji_tag_dict['filename'] = input_filename
-    fuji_tag_dict['accessionNumber'] = '0008 0050'
-    fuji_tag_dict['modality'] = '0008 0060'
-    fuji_tag_dict['sourceApplicationEntityTitle'] = '0002 0016'
-    fuji_tag_dict['stationName'] = '0008 1010'
-    fuji_tag_dict['institutionName'] = '0008 0080'
-    fuji_tag_dict['manufacturer'] = '0008 0070'
-    fuji_tag_dict['manufacturerModelName'] = '0008 1090'
-    fuji_tag_dict['transferSyntaxUid'] = '0002 0010'
-    return fuji_tag_dict
-
-
-# tag: (0008,0050) is represented as '(0008,0050)' for DCMTK sourced files
-def build_dcmtk_tag_dict(input_filename: str = 'default') -> dict:
-    """Creates mapping of DCMTK tag names to values"""
-    dcmtk_tag_dict = OrderedDict()
-    dcmtk_tag_dict['filename'] = input_filename
-    dcmtk_tag_dict['accessionNumber'] = '(0008,0050)'
-    dcmtk_tag_dict['modality'] = '(0008,0060)'
-    dcmtk_tag_dict['sourceApplicationEntityTitle'] = '(0002,0016)'
-    dcmtk_tag_dict['stationName'] = '(0008,1010)'
-    dcmtk_tag_dict['institutionName'] = '(0008,0080)'
-    dcmtk_tag_dict['manufacturer'] = '(0008,0070)'
-    dcmtk_tag_dict['manufacturerModelName'] = '(0008,1090)'
-    dcmtk_tag_dict['transferSyntaxUid'] = '(0002,0010)'
-    return dcmtk_tag_dict
-
-
 def is_fuji_tag_dump(txt_file_lines: list) -> tuple:
     """Dynamically determines if input is Fuji or DCMTK"""
     isFuji = False
     isDCMTK = False
     # check only first n-lines of input file for unique substring match
     for line_str in txt_file_lines[0:5]:
-        if 'Grp  Elmt | Description' in line_str:
+        if dicom_tools.FUJI_TAG in line_str:
             isFuji = True
-        if 'Dicom-Meta-Information-Header' in line_str:
+        if dicom_tools.DCMTK_TAG in line_str:
             isDCMTK = True
     return isFuji, isDCMTK
 
@@ -231,13 +166,13 @@ def get_tag_indices(tags: list, lines: list,
                     tag_indices_dict[tag_keyword] = line_str
     if config.DEBUG:
         for tag_key, tag_value in tag_indices_dict.items():
-            print(f"{tag_key}={tag_value}")
+            print(f"{tag_key}={tag_value}", end='')
     return tag_indices_dict
 
 
 def parse_dicom_tag_dump(input_headers: list, input_path: str) -> list:
     """Parse DICOM desired tag data from input .txt files"""
-    def_name = sys._getframe().f_code.co_name.upper()
+    def_name = inspect.currentframe().f_code.co_name
     status_str = f"{def_name}() in: '{input_path}'\n"
     print(status_str)
     tag_name = 'tagdump'
@@ -261,9 +196,9 @@ def parse_dicom_tag_dump(input_headers: list, input_path: str) -> list:
                 # dynamically determine which input file format:
                 (isFuji, isDCMTK) = is_fuji_tag_dump(lines_list[0:5])
                 if isFuji:
-                    elements = build_fuji_tag_dict(this_file)
+                    elements = dicom_tools.build_fuji_tag_dict(this_file)
                 elif isDCMTK:
-                    elements = build_dcmtk_tag_dict(this_file)
+                    elements = dicom_tools.build_dcmtk_tag_dict(this_file)
                 else:
                     elements = None  # input '.txt' not a tag dump
                 if elements:
@@ -287,6 +222,10 @@ def parse_dicom_tag_dump(input_headers: list, input_path: str) -> list:
                                     target_value = \
                                         line_str.split('[', 1)[1].split(']')[0]
                                     tag_dict[tag_key] = target_value
+                                elif '=' in line_str:
+                                    target_value = \
+                                        line_str.split('=', 1)[1].split('#')[0]
+                                    tag_dict[tag_key] = target_value.strip()
                             elif isFuji:
                                 # parse value between double quotes "..."
                                 if '"' in line_str:
@@ -309,15 +248,17 @@ def parse_dicom_tag_dump(input_headers: list, input_path: str) -> list:
 
 def get_cmd_args():
     """command line input on directory to scan recursively for media files"""
-    def_name = sys._getframe().f_code.co_name.upper()
+    def_name = inspect.currentframe().f_code.co_name
     parser = optparse.OptionParser()
     parser.add_option("-i", "--input", help="input path")
     options, remain = parser.parse_args()
     if options.input is None:
         if config.DEMO_ENABLED:
-            input_path = os.path.join(PARENT_PATH, 'input', 'tag_dumps')
+            input_path = os.path.join(PARENT_PATH, CURR_DIR,
+                                      'input', 'tag_dumps')
         else:
-            input_path = os.path.join(PARENT_PATH, CURR_DIR, 'tag_dumps_all')
+            input_path = os.path.join(PARENT_PATH, CURR_DIR,
+                                      'tag_dumps_all')
     else:
         input_path = options.input
         if os.path.exists(input_path) and os.path.isdir(input_path):
@@ -335,19 +276,14 @@ if __name__ == "__main__":
     input_path = get_cmd_args()
     if os.path.exists(input_path):
         if config.DEMO_ENABLED:
-            output_path = os.path.join(PARENT_PATH, 'output')
+            output_path = os.path.join(PARENT_PATH, CURR_DIR, 'output')
         else:
             output_path = os.path.join(PARENT_PATH, CURR_DIR, 'tag_dumps_all')
         if not os.path.exists(output_path):
             os.makedirs(output_path)
-        headers = ["filename", "accessionNumber", "modality",
-                   "sourceApplicationEntityTitle", "stationName",
-                   "institutionName",
-                   "manufacturer", "manufacturerModelName",
-                   "transferSyntaxUid"]
-        all_tag_list = parse_dicom_tag_dump(headers, input_path)
+        all_tag_list = parse_dicom_tag_dump(dicom_tools.headers, input_path)
         curr_date, curr_time = file_tools.generate_date_str()
-        filename = f"{TEMP_TAG}dicom_tag_dumps.xlsx"
+        filename = f"{config.TEMP_TAG}dicom_tag_dumps.xlsx"
         # works on both linux and windows
         if len(all_tag_list) > 1:  # more than just headers
             xls_status = export_to_excel(output_path, filename, all_tag_list)
