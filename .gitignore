@@ -1,3 +1,10 @@
+# Custom
+test_coverage
+test_formatting
+
+#IDE metadata
+.idea/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
