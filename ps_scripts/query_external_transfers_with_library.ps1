@@ -1,10 +1,10 @@
 <#  
 PS script to connect to Compass database and extract external transfers
 #>
-$author = "Emile Averill"
+$author = "averille.pdx"
 $email = "dicom.pdx@runbox.com"
 $status = "Testing on PHODICOMRTRTST PS v4.0 to v5.1"
-$version = "1.0.9"
+$version = "1.1.0"
 $ps_version = $PSVersionTable.PSVersion
 $script_name = $MyInvocation.MyCommand.Name 
 
@@ -40,6 +40,7 @@ function Start_Timer () {
     $timer = [System.Diagnostics.Stopwatch]::StartNew()
     return $timer 
 }
+
 function Stop_Print_Timer ([System.Diagnostics.Stopwatch] $input_timer, [String] $input_title='default_title' ) {
     $input_timer.Stop()
     if ($PRINT_TIMER) {
@@ -48,30 +49,37 @@ function Stop_Print_Timer ([System.Diagnostics.Stopwatch] $input_timer, [String]
         Write-Host (" '{0,-24}' {1,-24} runtime: {2}" -f $script_name, $input_title, $formatTime) -ForegroundColor DarkCyan
     }
 }
+
 $benchmark = Start_Timer
 
 function Get_TimeStamp {  
     return "{0:MM/dd/yy} {0:HH:mm:ss}" -f (Get-Date)
 }
+
 function Get_Month_Filename {  
     return "_{0:MM-yyyy}" -f (Get-Date)
 }
+
 function Get_Week_Filename { 
     $month_str = "{0:MM-yyyy}" -f (Get-Date)
     $week_num = (Get-Date -UFormat %V)
     $week_str = "week$week_num"
     return "_$month_str.$week_str"
 }
+
 function Get_Today_Filename {  
     return "_{0:MM-dd-yyyy}" -f (Get-Date)
 }
+
 function Get_TimeStamp_Filename {  
     return "_{0:MM-dd-yyyy}-{0:HH.mm_tt}" -f (Get-Date)
 }
+
 function Get_Modified_Timestamp ( [string]$input_filepath='default_path' ) { 
     $file_stat = (Get-Item -Path $input_filepath)
     return "created@{0:HH.mmtt}" -f $file_stat.LastWriteTime
 }
+
 function is_Path_Valid ( [string]$title_str='default_title', [string]$input_path='default_path' ) { 
     if (Test-Path $input_path) { 
         $isPathValid = $True
@@ -164,12 +172,12 @@ function Perform_Query {
     try {
         $sqlConnection = New-Object System.Data.SqlClient.SqlConnection $connectionString
         $sqlConnection.Open()
-        #Write-Host ("SQL Connection: '{0}' {1}" -f $sqlConnection.State, $sqlConnection.ConnectionString)
+        Write-Host ("SQL Connection: '{0}' {1}" -f $sqlConnection.State, $sqlConnection.ConnectionString)
              
         $sqlcmd = $sqlConnection.CreateCommand()
         $sqlcmd = New-Object System.Data.SqlClient.SqlCommand
         $sqlcmd.Connection = $sqlConnection
-       
+        $sqlcmd.CommandTimeout = 1
         $sqlcmd.CommandText = $input_query
         $data_table = New-Object Data.Datatable
 
@@ -244,7 +252,6 @@ if ($isDstValid) {
         Write-Host($query)
     }
     $result_obj = Perform_Query $query
-
     #~#~#~# append new data to .csv file #~#~#~#
     if ($result_obj.status -eq "SUCCESS") {
         if (Test-Path $dst_path) {
@@ -253,6 +260,9 @@ if ($isDstValid) {
                 $csv_path = $dst_path + "\$base_filename$(Get_Week_Filename)_SQL_$delimiter_name.csv"
                 if ($PURGE_CSV_FILE) {
                     Purge_File $csv_path
+                }
+                if ($result_obj.count -eq 0) {
+                    Write-Warning -Message ("...database tables are empty" )
                 }
                 if ($result_obj.count -gt 0) {
                     $result_obj.table | Export-Csv -Path $csv_path -delimiter $delimiter -NoTypeInformation -Append -Force
@@ -270,16 +280,14 @@ if ($isDstValid) {
                 $ErrorMessage = $_.Exception.Message
                 Write-Warning -Message ("~!*ERROR*!~ $ErrorMessage $FailedItem" )
             }
-            $prior_count = (Get-Content $csv_path | Measure-Object -Line )
-            Write-Host ("result_set: {0} rows added for {1} entries total" -f $result_obj.count, $prior_count.Lines)
+            if (Test-Path $csv_path) {
+                $prior_count = (Get-Content $csv_path | Measure-Object -Line)
+                Write-Host ("result_set: {0} rows added for {1} entries total" -f $result_obj.count, $prior_count.Lines)
+            }
         } #dst_path
-        
     } #result_obj.status
-
     Print_Query_State "query:" $result_obj.status
-
 } #isDstValid
 
 $title_str = ("finished running on '{0}'" -f $server_name)
 Stop_Print_Timer $benchmark $title_str
-

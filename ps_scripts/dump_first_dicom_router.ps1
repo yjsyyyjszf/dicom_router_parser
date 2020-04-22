@@ -4,10 +4,10 @@ Then runs a tag dump to extract specific information about each study.
 Note: the largest file size is used to avoid inadvertently parsing presentation states (PR) or stuctured reports (SR).
 Lastly, this script exports desired metadata to .csv/.xlsx, where each row = 1 instance of a DICOM transfer to the PHSWIMG_RTR. 
 #>
-$author = "Emile Averill"
+$author = "averille.pdx"
 $email = "dicom.pdx@runbox.com"
 $status = "Testing on PHODICOMRTRTST PS v4.0 to v5.1"
-$version = "1.3.4"
+$version = "1.3.5"
 $ps_version = $PSVersionTable.PSVersion
 $script_name = $MyInvocation.MyCommand.Name 
 
@@ -31,8 +31,8 @@ $root_dir = $PSScriptRoot
 $base_filename = "IMG_RTR"
 
 #~#~#~# FLAGS: toggle with $True or $False #~#~#~# 
-$PURGE_ALL = $True
-$PURGE_OUTPUT_CSV = $False
+$PURGE_ALL = $False
+$PURGE_OUTPUT_CSV = $True
 $DEBUG = $False
 $VERBOSE = $True
 $PRINT_FILE_STATS = $False
@@ -47,7 +47,7 @@ $FILTER_AETs = $False
 $AET_PATTERN = [string[]] ("ADAC_","AEGISWEB","FILA_","VANC_", "MCPB_", "MEHC_","RSEND_","SWMC_","SW_","SW_CATH","VHI_")
 $AET_PATTERN_STR = ""
 ForEach($substring in $AET_PATTERN) {
-    $AET_PATTERN_STR += "'"+$substring+"'"
+    $AET_PATTERN_STR += "'" + $substring + "'"
 }
 
 
@@ -125,7 +125,7 @@ function Print_Bool_State ( [string]$input_title='default_title', [bool]$input_b
 
 $pwd_path = Get-Location
 $pwd_parent_path = Split-Path -Path $pwd_path -Parent
-$dcmtk_path = "$pwd_parent_path\dcmtk-3.6.5-win32-dynamic\bin"
+$dcmtk_path = "$pwd_parent_path\libs\dcmtk-3.6.5-win32-dynamic\bin"
 $isdcmtkPathValid = is_Path_Valid "dcmtk_path" $dcmtk_path
 
 #$src_parent_path = "D:\ImageRepository"     # on compass router 

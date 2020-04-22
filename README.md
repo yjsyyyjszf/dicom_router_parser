@@ -11,8 +11,8 @@ Finally this script exports desired metadata to .csv/.xlsx, where each row = 1 i
 To exclude SWMC studies and toggle logging
 ```powershell
 $PURGE_CSV_FILE= $False
-$EXPORT_FIRST_DCM = $True
-$DUMP_TAGS_XMLs = $True
+$EXPORT_FIRST_DCM = $False
+$DUMP_TAGS_XMLs = $False
 $FILTER_PH_AETs = $False
 $PURGE_ALL = $False
 pattern:['ADAC_','AEGISWEB','FILA_','MEHC_','RSEND_','SWMC_','SW_','SW_CATH','VANC_']
@@ -28,10 +28,10 @@ IMG_RTR_MM-YYYY_LOGs   (for Excel/text reports)
 ```
 
 ## Example Output:
-![Screenshot](https://github.com/github-pdx/dicom.router.parser/blob/master/img/excel.export.png)
+![Screenshot](https://github.com/github-pdx/dicom.router.parser/blob/master/screenshots/excel.export.png)
 * [DICOM-based Excel Report](https://github.com/github-pdx/dicom.router.parser/blob/master/output/IMG_RTR_Transfers_06-09-19.xlsx)
-* [DICOM Tag Dump](https://github.com/github-pdx/dicom.router.parser/blob/master/592dbbe4f8994a36abcf85b4d67e1abb.junk/9fe63f0a-d304-4a22-9e4b-f0ebe63f7f78.txt)
-* [XML Tag Dump](https://github.com/github-pdx/dicom.router.parser/blob/master/592dbbe4f8994a36abcf85b4d67e1abb.junk/9fe63f0a-d304-4a22-9e4b-f0ebe63f7f78.xml)
+* [DICOM Tag Dump](https://github.com/github-pdx/dicom.router.parser/blob/master/output/dicom_export_example/9fe63f0a-d304-4a22-9e4b-f0ebe63f7f78.txt)
+* [XML Tag Dump](https://github.com/github-pdx/dicom.router.parser/blob/master/output/dicom_export_example/9fe63f0a-d304-4a22-9e4b-f0ebe63f7f78.xml)
 * [Tag-based Excel Report](https://github.com/github-pdx/dicom.router.parser/blob/master/output/~dicom_tag_dumps.xlsx)
 
 
@@ -60,11 +60,11 @@ IMG_RTR_MM-YYYY_LOGs   (for Excel/text reports)
 
 When attempting to run \dcmtk-3.6.5-**win64**-dynamic\bin\dcmdump.exe to parse tag data, if you get the following error: 
 
-![Screenshot](https://github.com/github-pdx/dicom.router.parser/blob/master/img/missing.MSVCP110.dll_(x64).png)
+![Screenshot](https://github.com/github-pdx/dicom.router.parser/blob/master/screenshots/missing.MSVCP110.dll_(x64).png)
 
 **Below is the fix:**
 
-![Screenshot](https://github.com/github-pdx/dicom.router.parser/blob/master/img/install.C++.redistributable_(x64).png)
+![Screenshot](https://github.com/github-pdx/dicom.router.parser/blob/master/screenshots/install.C++.redistributable_(x64).png)
 
 ## Maintainer:
-Emile Averill
+averille.pdx
