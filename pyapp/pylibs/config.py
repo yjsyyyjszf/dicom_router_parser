@@ -9,6 +9,7 @@ from urllib.error import HTTPError
 from urllib.error import URLError
 from urllib.request import Request
 from urllib.request import urlopen
+import pkg_resources
 
 BASE_DIR, SCRIPT_NAME = os.path.split(os.path.abspath(__file__))
 PARENT_PATH, CURR_DIR = os.path.split(BASE_DIR)
@@ -16,17 +17,22 @@ IS_WINDOWS = sys.platform.startswith('win')
 DEBUG = False
 VERBOSE = False
 DEMO_ENABLED = True
-SHOW_METHODS = False
 TEMP_TAG = '~'
 
+__all__ = ['print_current_packages', 'get_login',
+           'get_isp_info', 'print_header']
 
-def show_method(method_name: str) -> None:
-    if SHOW_METHODS:
-        print(f"{method_name.upper()}()")
+
+def print_current_packages():
+    """Displays currently installed python packages on host."""
+    distros = list(pkg_resources.working_set)
+    installed = sorted([f"{d.project_name:}=={d.version}" for d in distros])
+    for pkg_num, pkg_name in enumerate(installed):
+        print(f"pkg_{pkg_num:03d}: {pkg_name}")
 
 
 def get_login() -> str:
-    """"getpass.getuser() os.getlogin() docker fail"""
+    """"getpass.getuser() os.getlogin(): docker does not have username."""
     try:
         username = os.getlogin()
         return username
@@ -36,7 +42,7 @@ def get_login() -> str:
 
 
 def get_isp_info() -> str:
-    """Get current ISP information of connected host"""
+    """Get current ISP information of connected host."""
     isp_req = Request('http://ipinfo.io/json')
     try:
         response = urlopen(isp_req)
@@ -54,11 +60,11 @@ __author__ = "averille"
 __email__ = "github.pdx@runbox.com"
 __status__ = "demo"
 __license__ = "MIT"
-__version__ = "1.3.6"
+__version__ = "1.3.7"
 
 
 def print_header(script_name) -> None:
-    """Display project status, host characteristics, and ISP information"""
+    """Display project status, host characteristics, and ISP information."""
     host_enc = locale.getpreferredencoding()
     host_arch = f"{pfm.system()} {pfm.architecture()[0]} {pfm.machine()}"
     header = f"""    license: \t{__license__}
@@ -70,6 +76,5 @@ def print_header(script_name) -> None:
     email:   \t{__email__}
     status:  \t{__status__}
     version: \t{__version__}
-    isp_info:\t{get_isp_info()}
-    """
+    isp_info:\t{get_isp_info()}"""
     print(header)

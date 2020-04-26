@@ -13,6 +13,7 @@ from pylibs import config
 from pylibs import file_tools
 from pylibs import dicom_tools
 
+
 BASE_DIR, SCRIPT_NAME = os.path.split(os.path.abspath(__file__))
 PARENT_PATH, CURR_DIR = os.path.split(BASE_DIR)
 IS_WINDOWS = sys.platform.startswith('win')

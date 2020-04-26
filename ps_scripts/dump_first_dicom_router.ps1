@@ -130,7 +130,7 @@ $isdcmtkPathValid = is_Path_Valid "dcmtk_path" $dcmtk_path
 
 #$src_parent_path = "D:\ImageRepository"     # on compass router 
 $src_parent_path = "$pwd_parent_path\input"  # for demo: current working directory
-$src_path = (Join-Path "$src_parent_path" -ChildPath "images")
+$src_path = (Join-Path "$src_parent_path" -ChildPath "DICOM")
 $isSrcValid = is_Path_Valid "src_path" $src_path
 
 $dst_parent_path = "$pwd_parent_path\output"

@@ -7,12 +7,9 @@ install:
   - pip install codecov
 env:
   - SH=bash
-  - CURRENT_DIR=$(pwd)
-  - TEST_DIR="$CURRENT_DIR/test"
   - export PYTHONPATH=$PYTHONPATH:$(pwd)
 script:
-  - cd $TEST_DIR && python -m pytest
+  - python -m pytest
 branches:
   only:
    - master
-   

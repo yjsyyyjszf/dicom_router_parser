@@ -1,79 +1,30 @@
 # -*- coding: UTF-8 -*-
 """File tools module to for basic file I/O utilities."""
 import datetime
-import errno
 import inspect
 import hashlib
 import os
+import pathlib
 import sys
-from collections import OrderedDict
 import chardet
-import pkg_resources
-from pylibs import config
+from collections import OrderedDict
+from boltons.fileutils import mkdir_p
+
 
 BASE_DIR, SCRIPT_NAME = os.path.split(os.path.abspath(__file__))
 PARENT_PATH, CURR_DIR = os.path.split(BASE_DIR)
+IS_WINDOWS = sys.platform.startswith('win')
+DEBUG = False
+SHOW_METHODS = False
 
-__all__ = ['print_current_packages', 'is_pathname_valid', 'is_path_exists_or_creatable',
-           'bytes_to_readable', 'split_path', 'sanitize', 'save_output_txt',
-           'get_directories', 'get_files', 'get_extensions']
-
-ASCII_CTRL = r'\/:*?"<>|'
-INVALID_CHARS = ',;{}^#?$@%$'
-AVOID_DIRS = ['log_files', 'Program Files', 'ProgramData', 'Windows', '.git',
-              '.idea', 'venv', '__pycache__', '$RECYCLE.BIN', '__init__']
+__all__ = ['show_method', 'bytes_to_readable', 'split_path', 'sanitize',
+           'save_output_txt', 'get_directories', 'get_files', 'get_extensions']
 
 
-def print_current_packages():
-    """Displays currently installed python modules on host."""
-    config.show_method(inspect.currentframe().f_code.co_name)
-    distros = list(pkg_resources.working_set)
-    installed = sorted([f"{d.project_name:24}\t{d.version}" for d in distros])
-    for pkg_num, pkg_name in enumerate(installed):
-        print(f"pkg_{pkg_num:03d}:\t{pkg_name}")
-
-
-def is_pathname_valid(path_name: str = 'default') -> bool:
-    """Verifies if input path is valid, windows centric."""
-    ERROR_INVALID_NAME = 123
-    try:
-        if not isinstance(path_name, str) or not path_name:
-            return False
-        base_name, path_name = os.path.splitdrive(path_name)
-        root_dirname = os.environ.get('HOMEDRIVE', 'C:') \
-            if sys.platform == 'win32' else os.path.sep
-        assert os.path.isdir(root_dirname)
-        root_dirname = root_dirname.rstrip(os.path.sep) + os.path.sep
-        for pathname_part in path_name.split(os.path.sep):
-            try:
-                os.lstat(root_dirname + pathname_part)
-            except OSError as exception:
-                if hasattr(exception, 'winerror'):
-                    if exception.winerror == ERROR_INVALID_NAME:
-                        return False
-                elif exception.errno in {errno.ENAMETOOLONG, errno.ERANGE}:
-                    return False
-    except TypeError as exception:
-        print(f"  {sys.exc_info()[0]}\n{exception}")
-        return False
-    else:
-        return True
-
-
-def is_path_creatable(path_name: str = 'default') -> bool:
-    """Verifies if input path can be written."""
-    if isinstance(path_name, str) or path_name:
-        dir_name = os.path.dirname(path_name) or os.getcwd()
-    return os.access(dir_name, os.W_OK)
-
-
-def is_path_exists_or_creatable(path_name: str = 'default') -> bool:
-    """Verifies if input path exists and can be written to."""
-    try:
-        return (is_pathname_valid(path_name) and
-                (os.path.exists(path_name) or is_path_creatable(path_name)))
-    except OSError:
-        return False
+def show_method(method_name: str) -> None:
+    """Display method names for verbose/debugging."""
+    if SHOW_METHODS:
+        print(f"{method_name.upper()}()")
 
 
 def bytes_to_readable(input_bytes: int) -> str:
@@ -82,7 +33,7 @@ def bytes_to_readable(input_bytes: int) -> str:
         return '0 bytes'
     number_of_bytes = float(input_bytes)
     unit_str = 'bytes'
-    if config.IS_WINDOWS:
+    if IS_WINDOWS:
         kilobyte = 1024.0  # iso_binary size windows
     else:
         kilobyte = 1000.0  # si_unit size linux
@@ -106,17 +57,6 @@ def bytes_to_readable(input_bytes: int) -> str:
     return str(f"{number_of_bytes:05.2F} {unit_str}")
 
 
-def make_unicode(input_data):
-    """Decodes input data into UTF-8."""
-    unicode_range = ('4E00', '9FFF')
-    try:
-        if type(input_data) != unicode_range:
-            input_data = input_data.decode('UTF-8')
-        return input_data
-    except UnicodeDecodeError as exception:
-        print(f"  {sys.exc_info()[0]}\n {exception}")
-
-
 def is_encoded(data, encoding: str = 'default') -> bool:
     """Verifies if bytes object is non-ASCII encoded."""
     try:
@@ -129,8 +69,6 @@ def is_encoded(data, encoding: str = 'default') -> bool:
     except UnicodeDecodeError:
         return False
     else:
-        if config.DEBUG:
-            print(f"{encoding} {data} {type(data)}")
         return True
 
 
@@ -146,6 +84,7 @@ def check_encoding(input_val: bytes):
 
 def remove_accents(byte_input, byte_enc: str, confidence: float) -> str:
     """Decodes bytes object - dynamically determined."""
+    # unicode_example = u'û è ï - ö î ó ‘ é  í ’ ° æ ™'
     dec_str = ""
     try:
         if sys.platform == 'win32':
@@ -153,88 +92,62 @@ def remove_accents(byte_input, byte_enc: str, confidence: float) -> str:
                 is_encoded(byte_input, byte_enc)
                 dec_str = byte_input.decode(byte_enc)
             elif is_encoded(byte_input, 'UTF-8'):
-                # input = u'û è ï - ö î ó ‘ é  í ’ ° æ ™'
                 dec_str = byte_input.decode('UTF-8')
-            enc_bytes = dec_str.encode('UTF-8')  # python ascii string
-            if config.DEBUG:
-                print(f"   byte_input:  {type(byte_input)} \t '{byte_input}'")
-                print(f"   dec_str: {type(dec_str)} \t '{dec_str}'")
-                print(f"   enc_bytes: {type(enc_bytes)} \t '{enc_bytes}'")
+            # enc_bytes = dec_str.encode('UTF-8')  # python ascii string
     except (UnicodeDecodeError, UnicodeError) as exception:
         print(f"\nERROR: input: '{input}' {type(input)}")
         print(f"  {sys.exc_info()[0]}\n{exception}")
     return dec_str
 
 
-def get_sha1_hash(input_path: str = 'default') -> str:
+def get_sha256_hash(input_path: str = 'default') -> str:
     """Returns SHA1 hash value of input filepath."""
     if not isinstance(input_path, str) or not input_path:
-        sha1_hex = 'no hash'
-    if is_path_exists_or_creatable(input_path):
+        return 'no hash'
+    pl_path = pathlib.Path(input_path)
+    if pl_path.exists():
         file_pointer = open(input_path, 'rb')
         fp_read = file_pointer.read()
-        sha1_hash = hashlib.sha1(fp_read)
-        sha1_hex = str(sha1_hash.hexdigest().upper())
+        sha_hash = hashlib.sha256(fp_read)
+        sha_hex = str(sha_hash.hexdigest().upper())
         file_pointer.close()
-    return sha1_hex
+        return sha_hex
 
 
 def get_directory_size(input_path: str = 'default') -> int:
     """Returns recursive sum of file sizes from input directory path."""
-    config.show_method(inspect.currentframe().f_code.co_name)
-    total_size = 0
-    for dirpath, dirnames, filenames in os.walk(input_path):
-        for file in filenames:
-            total_size += os.path.getsize(os.path.join(dirpath, file))
-    return total_size
+    show_method(inspect.currentframe().f_code.co_name)
+    if not isinstance(input_path, str) and not input_path:
+        return 0
+    pl_path = pathlib.Path(input_path)
+    if pl_path.exists():
+        r_file_sizes = [f.stat().st_size for f in pl_path.rglob('*')
+                                if f.is_file()]
+        return sum(r_file_sizes)
+    return 0
 
 
 def split_path(input_path: str = 'default') -> tuple:
-    """Custom os.path.split() to account for files without extensions."""
-    if input_path:
-        input_path_isfile = True
-        # if present remove trailing os.sep '//'
-        if input_path[-1] == os.sep:
-            input_path = input_path[:-1]
-        path_head, path_tail = os.path.split(input_path)
-        # input_path does not include an filename or extension
-        if os.path.isdir(os.path.join(path_head, path_tail)):
-            input_path_isfile = False
-            parent = str(path_head)
+    if isinstance(input_path, str) or input_path:
+        pl_path = pathlib.Path(input_path)
+        if pl_path.exists():
+            path_head, path_tail = os.path.split(input_path)
+            parent = pl_path.parent
             curr_dir = str(path_tail)
-            basename = ''
-            ext = ''
-            return parent, curr_dir, basename, ext
-        if input_path_isfile:
-            full_dirpath = os.path.dirname(input_path)
-            filename_wext = os.path.basename(input_path)
-            basename, ext = os.path.splitext(filename_wext)
-            # only split the directory (not the filename)
-            sep_split_list = full_dirpath.split(os.sep)
-            path_len = len(sep_split_list)
-            # CASE1 where files are in drivedir
-            if path_len == 1:
-                parent = str(sep_split_list[0])
-                curr_dir = ''
-                return parent, curr_dir, basename, ext
-            # CASE2 where files are only 1 subfolder from drivedir
-            if path_len == 2:
-                parent = str(sep_split_list[0])
-                curr_dir = str(sep_split_list[1])
-                return parent, curr_dir, basename, ext
-            # CASE3 where files are only 2+ subfolders from drivedir
-            if path_len > 2:
-                parent = os.sep.join(sep_split_list[:-1])
-                curr_dir = str(sep_split_list[-1])  # last subfolder
-                return parent, curr_dir, basename, ext
+            file_name = pl_path.stem
+            file_ext = pl_path.suffix
+            return parent, curr_dir, file_name, file_ext
+    return None
 
 
 def path_not_in_avoid(input_path: str = 'default') -> bool:
     """Returns true if all directories to avoid are not in input_path."""
-    if input_path:
-        default = 'VALID'
-        path_hit = next((s for s in AVOID_DIRS if s in input_path), default)
-        if path_hit == default:
+    if isinstance(input_path, str) and input_path:
+        avoid_dirs = ['log_files', 'Program Files', 'ProgramData', 'Windows',
+                      '.git', '.idea', 'venv', '__pycache__', '$RECYCLE.BIN',
+                      '__init__']
+        path_hit = next((s for s in avoid_dirs if s in input_path), 'VALID')
+        if path_hit == 'VALID':
             return True
     return False
 
@@ -242,17 +155,19 @@ def path_not_in_avoid(input_path: str = 'default') -> bool:
 def sanitize(filename: str = 'default') -> str:
     """Strips invalid filepath characters from input string."""
     sanitized = filename
-    for char in ASCII_CTRL:
+    ascii_control = r'\/:*?"<>|'
+    for char in ascii_control:
         if char in sanitized:
-            sanitized = sanitized.replace(char, "")
-    for char in INVALID_CHARS:
+            sanitized = sanitized.replace(char, '')
+    invalid_path_chars = ',;{}^#?$@%$'
+    for char in invalid_path_chars:
         if char in sanitized:
-            sanitized = sanitized.replace(char, "")
+            sanitized = sanitized.replace(char, '')
     return sanitized
 
 
 def generate_date_str() -> tuple:
-    """Creates string based on current timestamp."""
+    """Creates string based on current timestamp when called."""
     now = datetime.datetime.now()
     date = now.strftime("%m-%d-%Y")
     time = now.strftime("%H%M%p").lower()
@@ -280,7 +195,7 @@ def save_output_txt(out_path: str, output_filename: str, output_str: str,
                 out_filename_ext = f"~{out_filename_ext}"
             output_path_txt = os.path.join(out_path, out_filename_ext)
             if not os.path.exists(out_path):
-                os.makedirs(out_path)
+                mkdir_p(out_path)
             # 'w'=write, 'a'=append, 'b'=binary, 'x'=create
             open_flags = 'w'
             with open(output_path_txt, open_flags) as txt_file:
@@ -288,26 +203,27 @@ def save_output_txt(out_path: str, output_filename: str, output_str: str,
             txt_file.close()
             status = f"\nSUCCESS! {def_name}()"
         else:
-            status = f"\nERROR! {def_name}()"
+            status = f"\nERROR! no data to export... {def_name}()"
     except (IOError, OSError, PermissionError, FileExistsError) as exception:
         status = f"\n~!ERROR!~ {sys.exc_info()[0]}\n{exception}"
-    return status
+    finally:
+        return status
 
 
 def count_files(input_path: str, file_ext: str = '.mp3') -> int:
     """Returns recursive count of files with specific extension."""
-    file_list = []
-    if is_path_exists_or_creatable(input_path):
-        for root_path, dirs, files in os.walk(input_path):
-            for _file in files:
-                if file_ext:
-                    if _file.lower().endswith(file_ext):
-                        file_list.append(_file)
-    return len(file_list)
+    if not isinstance(input_path, str) and not input_path:
+        return 0
+    pl_path = pathlib.Path(input_path)
+    if pl_path.exists():
+        if isinstance(file_ext, str) and file_ext:
+            files = sorted(pl_path.rglob(f"*{file_ext}"))
+            return len(files)
+    return 0
 
 
 def convert_dict_to_str(input_path: str, ext_map: dict) -> str:
-    """Returns count of each file extension in file_path - sorted order."""
+    """Converts dictionary values to custom formatted string."""
     output_str = ""
     file_count = ""
     if ext_map:
@@ -326,7 +242,7 @@ def get_extensions(input_path: str = 'default') -> dict:
     print(output_str)
     extension_dict = {}
     # get unique set of file extensions (including sub-folders)
-    if is_path_exists_or_creatable(input_path):
+    if pathlib.Path(input_path).exists():
         for root_path, dirs, files in os.walk(input_path):
             for _file in files:
                 if path_not_in_avoid(_file):
@@ -354,7 +270,7 @@ def get_directories(input_path: str = 'default') -> tuple:
         par_size = get_directory_size(input_path)
         for file_dir in sorted(os.listdir(input_path)):
             if os.path.isdir(os.path.join(input_path, file_dir)):
-                if file_dir not in AVOID_DIRS:
+                if path_not_in_avoid(file_dir):
                     dir_list.append(file_dir)
         output_str += (f"   ({len(dir_list)}) directories "
                        f"[{bytes_to_readable(par_size)}]\n")
@@ -379,7 +295,7 @@ def get_files(input_path: str, input_ext: str) -> tuple:
     file_list = []
     file_path_list = []
     if isinstance(input_path, str) and isinstance(input_ext, str):
-        if is_path_exists_or_creatable(input_path):
+        if pathlib.Path(input_path).exists():
             for root_path, dirs, files in os.walk(input_path):
                 for _file in files:
                     if _file.lower().endswith(input_ext):

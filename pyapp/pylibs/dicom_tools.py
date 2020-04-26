@@ -2,9 +2,10 @@
 """DICOM centric utilities for DCMTK and Fuji tags."""
 from collections import OrderedDict
 
+__all__ = ['build_fuji_tag_dict', 'build_dcmtk_tag_dict']
+
 FUJI_TAG = 'Grp  Elmt | Description'
 DCMTK_TAG = 'Dicom-Meta-Information-Header'
-
 
 headers = ["filename", "accessionNumber", "modality",
            "sourceApplicationEntityTitle", "stationName",
