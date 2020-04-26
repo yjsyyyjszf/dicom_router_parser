@@ -1,29 +1,33 @@
-#!/usr/bin/env python3
 # -*- coding: UTF-8 -*-
-import chardet
-from collections import OrderedDict
+"""File tools module to for basic file I/O utilities."""
 import datetime
 import errno
 import inspect
 import hashlib
 import os
-import pkg_resources
 import sys
-from custom import config
+from collections import OrderedDict
+import chardet
+import pkg_resources
+from pylibs import config
 
 BASE_DIR, SCRIPT_NAME = os.path.split(os.path.abspath(__file__))
 PARENT_PATH, CURR_DIR = os.path.split(BASE_DIR)
 
+__all__ = ['print_current_packages', 'is_pathname_valid', 'is_path_exists_or_creatable',
+           'bytes_to_readable', 'split_path', 'sanitize', 'save_output_txt',
+           'get_directories', 'get_files', 'get_extensions']
+
 ASCII_CTRL = r'\/:*?"<>|'
 INVALID_CHARS = ',;{}^#?$@%$'
 AVOID_DIRS = ['log_files', 'Program Files', 'ProgramData', 'Windows', '.git',
-              '.idea', 'venv', '__pycache__', '$RECYCLE.BIN']
+              '.idea', 'venv', '__pycache__', '$RECYCLE.BIN', '__init__']
 
 
 def print_current_packages():
     """Displays currently installed python modules on host."""
     config.show_method(inspect.currentframe().f_code.co_name)
-    distros = [d for d in pkg_resources.working_set]
+    distros = list(pkg_resources.working_set)
     installed = sorted([f"{d.project_name:24}\t{d.version}" for d in distros])
     for pkg_num, pkg_name in enumerate(installed):
         print(f"pkg_{pkg_num:03d}:\t{pkg_name}")
@@ -58,7 +62,8 @@ def is_pathname_valid(path_name: str = 'default') -> bool:
 
 def is_path_creatable(path_name: str = 'default') -> bool:
     """Verifies if input path can be written."""
-    dir_name = os.path.dirname(path_name) or os.getcwd()
+    if isinstance(path_name, str) or path_name:
+        dir_name = os.path.dirname(path_name) or os.getcwd()
     return os.access(dir_name, os.W_OK)
 
 
@@ -73,6 +78,8 @@ def is_path_exists_or_creatable(path_name: str = 'default') -> bool:
 
 def bytes_to_readable(input_bytes: int) -> str:
     """Converts file size to Windows/Linux formatted string."""
+    if not isinstance(input_bytes, int) or not input_bytes:
+        return '0 bytes'
     number_of_bytes = float(input_bytes)
     unit_str = 'bytes'
     if config.IS_WINDOWS:
@@ -105,10 +112,8 @@ def make_unicode(input_data):
     try:
         if type(input_data) != unicode_range:
             input_data = input_data.decode('UTF-8')
-            return input_data
-        else:
-            return input_data
-    except Exception as exception:
+        return input_data
+    except UnicodeDecodeError as exception:
         print(f"  {sys.exc_info()[0]}\n {exception}")
 
 
@@ -134,10 +139,9 @@ def check_encoding(input_val: bytes):
     if isinstance(input_val, (bytes, bytearray)):
         # bytes: immutable, bytesarray: mutable both ASCII:[ints 0<=x<256]
         return chardet.detect(input_val), input_val
-    else:
-        # ignore, replace backslashreplace namereplace
-        bytes_arr = input_val.encode(encoding='UTF-8', errors='namereplace')
-        return chardet.detect(bytes_arr), bytes_arr
+    # options: ignore, replace, backslashreplace, namereplace
+    bytes_arr = input_val.encode(encoding='UTF-8', errors='namereplace')
+    return chardet.detect(bytes_arr), bytes_arr
 
 
 def remove_accents(byte_input, byte_enc: str, confidence: float) -> str:
@@ -156,7 +160,7 @@ def remove_accents(byte_input, byte_enc: str, confidence: float) -> str:
                 print(f"   byte_input:  {type(byte_input)} \t '{byte_input}'")
                 print(f"   dec_str: {type(dec_str)} \t '{dec_str}'")
                 print(f"   enc_bytes: {type(enc_bytes)} \t '{enc_bytes}'")
-    except Exception as exception:
+    except (UnicodeDecodeError, UnicodeError) as exception:
         print(f"\nERROR: input: '{input}' {type(input)}")
         print(f"  {sys.exc_info()[0]}\n{exception}")
     return dec_str
@@ -164,11 +168,14 @@ def remove_accents(byte_input, byte_enc: str, confidence: float) -> str:
 
 def get_sha1_hash(input_path: str = 'default') -> str:
     """Returns SHA1 hash value of input filepath."""
-    fp = open(input_path, 'rb')
-    rfp = fp.read()
-    sha1_hash = hashlib.sha1(rfp)
-    sha1_hex = str(sha1_hash.hexdigest().upper())
-    fp.close()
+    if not isinstance(input_path, str) or not input_path:
+        sha1_hex = 'no hash'
+    if is_path_exists_or_creatable(input_path):
+        file_pointer = open(input_path, 'rb')
+        fp_read = file_pointer.read()
+        sha1_hash = hashlib.sha1(fp_read)
+        sha1_hex = str(sha1_hash.hexdigest().upper())
+        file_pointer.close()
     return sha1_hex
 
 
@@ -193,40 +200,43 @@ def split_path(input_path: str = 'default') -> tuple:
         # input_path does not include an filename or extension
         if os.path.isdir(os.path.join(path_head, path_tail)):
             input_path_isfile = False
-            drive_parent_dir = str(path_head)
+            parent = str(path_head)
             curr_dir = str(path_tail)
-            file_basename = ''
-            file_ext = ''
+            basename = ''
+            ext = ''
+            return parent, curr_dir, basename, ext
         if input_path_isfile:
             full_dirpath = os.path.dirname(input_path)
             filename_wext = os.path.basename(input_path)
-            file_basename, file_ext = os.path.splitext(filename_wext)
+            basename, ext = os.path.splitext(filename_wext)
             # only split the directory (not the filename)
             sep_split_list = full_dirpath.split(os.sep)
             path_len = len(sep_split_list)
             # CASE1 where files are in drivedir
             if path_len == 1:
-                drive_parent_dir = str(sep_split_list[0])
+                parent = str(sep_split_list[0])
                 curr_dir = ''
+                return parent, curr_dir, basename, ext
             # CASE2 where files are only 1 subfolder from drivedir
             if path_len == 2:
-                drive_parent_dir = str(sep_split_list[0])
+                parent = str(sep_split_list[0])
                 curr_dir = str(sep_split_list[1])
+                return parent, curr_dir, basename, ext
             # CASE3 where files are only 2+ subfolders from drivedir
             if path_len > 2:
-                drive_parent_dir = os.sep.join(sep_split_list[:-1])
+                parent = os.sep.join(sep_split_list[:-1])
                 curr_dir = str(sep_split_list[-1])  # last subfolder
-        return drive_parent_dir, curr_dir, file_basename, file_ext
+                return parent, curr_dir, basename, ext
 
 
-def check_pathname_skip(input_path: str = 'default') -> bool:
-    """Returns true if input path is not in any directory to avoid."""
+def path_not_in_avoid(input_path: str = 'default') -> bool:
+    """Returns true if all directories to avoid are not in input_path."""
     if input_path:
-        path_hit = next((s for s in AVOID_DIRS if s in input_path), True)
-        if path_hit:
+        default = 'VALID'
+        path_hit = next((s for s in AVOID_DIRS if s in input_path), default)
+        if path_hit == default:
             return True
-        else:
-            return False
+    return False
 
 
 def sanitize(filename: str = 'default') -> str:
@@ -249,45 +259,50 @@ def generate_date_str() -> tuple:
     return date, time
 
 
-def save_output_txt(txt_path: str, input_filename: str, output_str: str,
+def save_output_txt(out_path: str, output_filename: str, output_str: str,
                     delim_tag: bool = False,
                     replace_ext: bool = True) -> str:
     """Exports string to text file, uses the '.txt' file extension."""
     def_name = inspect.currentframe().f_code.co_name
     try:
         if len(output_str) > 4:
-            file_ext = '.txt'
-            if replace_ext and '.' in input_filename:
-                # split based on last occurrence of '.' using rsplit()
-                name_split = input_filename.rsplit(sep='.', maxsplit=1)
-                input_filename = name_split[0]  # remove input extension
-            if delim_tag:
-                tagged_filename = f"~{input_filename}{file_ext}"
-                output_path = os.path.join(txt_path, tagged_filename)
+            # split based on last occurrence of '.' using rsplit()
+            if '.' in output_filename:
+                base_name, orig_ext = output_filename.rsplit(sep='.',
+                                                             maxsplit=1)
             else:
-                untagged_filename = f"{input_filename}{file_ext}"
-                output_path = os.path.join(txt_path, untagged_filename)
-            if not os.path.exists(txt_path):
-                os.makedirs(txt_path)
+                base_name, orig_ext = (output_filename, '')
+            if replace_ext:
+                out_filename_ext = f"{base_name}.txt"
+            else:
+                out_filename_ext = f"{base_name}.{orig_ext}"
+            if delim_tag:
+                out_filename_ext = f"~{out_filename_ext}"
+            output_path_txt = os.path.join(out_path, out_filename_ext)
+            if not os.path.exists(out_path):
+                os.makedirs(out_path)
             # 'w'=write, 'a'=append, 'b'=binary, 'x'=create
             open_flags = 'w'
-            with open(output_path, open_flags) as text_file:
-                text_file.write(output_str)
-            text_file.close()
-            return f"\nSUCCESS! {def_name}()"
+            with open(output_path_txt, open_flags) as txt_file:
+                txt_file.write(output_str)
+            txt_file.close()
+            status = f"\nSUCCESS! {def_name}()"
+        else:
+            status = f"\nERROR! {def_name}()"
     except (IOError, OSError, PermissionError, FileExistsError) as exception:
-        err_str = f"\n~!ERROR!~ {sys.exc_info()[0]}\n{exception}"
-        return err_str
+        status = f"\n~!ERROR!~ {sys.exc_info()[0]}\n{exception}"
+    return status
 
 
 def count_files(input_path: str, file_ext: str = '.mp3') -> int:
     """Returns recursive count of files with specific extension."""
     file_list = []
     if is_path_exists_or_creatable(input_path):
-        for (root_path, dirs, files) in os.walk(input_path):
-            for this_file in files:
-                if this_file.lower().endswith(file_ext):
-                    file_list.append(this_file)
+        for root_path, dirs, files in os.walk(input_path):
+            for _file in files:
+                if file_ext:
+                    if _file.lower().endswith(file_ext):
+                        file_list.append(_file)
     return len(file_list)
 
 
@@ -295,67 +310,67 @@ def convert_dict_to_str(input_path: str, ext_map: dict) -> str:
     """Returns count of each file extension in file_path - sorted order."""
     output_str = ""
     file_count = ""
-    for this_ext, this_count in ext_map.items():
-        print(f"   extension_dict: [{this_ext:5} = {this_count:04}]")
-        file_count += f"\t[{this_count:04}]\t{this_ext:5}\n"
-    output_str = (f"FOUND: '{len(ext_map):02}' extensions: "
-                  f"'{input_path}'\n{file_count}")
+    if ext_map:
+        for _ext, count in ext_map.items():
+            print(f"   extension_dict: [{_ext:5} = {count:04}]")
+            file_count += f"\t[{count:04}]\t{_ext:5}\n"
+        output_str = (f"FOUND: '{len(ext_map):02}' extensions: "
+                      f"'{input_path}'\n{file_count}")
     return output_str
 
 
 def get_extensions(input_path: str = 'default') -> dict:
     """Returns recursive set of all file extensions within input path."""
     def_name = inspect.currentframe().f_code.co_name
-    output_str = f"\n{def_name}() in: '{input_path}'"
+    output_str = f"\n{def_name}()"
     print(output_str)
     extension_dict = {}
     # get unique set of file extensions (including sub-folders)
     if is_path_exists_or_creatable(input_path):
         for root_path, dirs, files in os.walk(input_path):
-            for this_file in files:
-                this_file_path = os.path.join(root_path, this_file)
-                if check_pathname_skip(this_file_path):
-                    file_ext = f".{this_file.split('.')[-1].lower()}"
+            for _file in files:
+                if path_not_in_avoid(_file):
+                    file_ext = f".{_file.split('.')[-1].lower()}"
                     # exclude files without extension
-                    if len(file_ext) < 8:
+                    if len(file_ext) > 1:
                         if file_ext not in extension_dict:
                             extension_dict[file_ext] = 0
     # get count of each unique extension in file_path - sorted order
     sorted_extension_dict = OrderedDict()
-    for this_ext in sorted(extension_dict.keys()):
-        file_count = count_files(input_path, this_ext)
-        sorted_extension_dict[this_ext] = file_count
+    for _ext in sorted(extension_dict.keys()):
+        file_count = count_files(input_path, _ext)
+        sorted_extension_dict[_ext] = file_count
     return sorted_extension_dict
 
 
 def get_directories(input_path: str = 'default') -> tuple:
     """Return list of directories within input path (including subfolders)."""
     def_name = inspect.currentframe().f_code.co_name
-    dir_list = []
-    dir_size_list_of_lists = []
-    output_str = f"\n{def_name}() in: '{input_path}'\n"
-    parent_dir, curr_dir, file_name, file_ext = split_path(input_path)
-    par_size = get_directory_size(input_path)
-    for file_dir in sorted(os.listdir(input_path)):
-        if os.path.isdir(os.path.join(input_path, file_dir)):
-            if file_dir not in AVOID_DIRS:
-                dir_list.append(file_dir)
-    output_str += (f"   ({len(dir_list)}) directories "
-                   f"[{bytes_to_readable(par_size)}]\n")
-    print(output_str, end='')  # skip newline to stdout
-    for count, directory in enumerate(sorted(dir_list)):
-        subdir_path = os.path.join(parent_dir, curr_dir, directory)
-        dir_size = get_directory_size(subdir_path)
-        last_mod_ts = os.path.getmtime(subdir_path)
-        subdir_last_modified = datetime.datetime.fromtimestamp(last_mod_ts)
-        dir_size_list = []
-        dir_size_list.append(f"{count + 1:02}")
-        dir_size_list.append(f"{dir_size:08}")
-        dir_size_list.append(f"{bytes_to_readable(dir_size)}")
-        dir_size_list.append(f"{subdir_path}")
-        dir_size_list.append(f"{subdir_last_modified}")
-        dir_size_list_of_lists.append(dir_size_list)
-    return dir_size_list_of_lists, output_str
+    dir_size_list = []
+    output_str = f"\n{def_name}()\n"
+    if isinstance(input_path, str) and input_path:
+        dir_list = []
+        parent_dir, curr_dir, file_name, file_ext = split_path(input_path)
+        par_size = get_directory_size(input_path)
+        for file_dir in sorted(os.listdir(input_path)):
+            if os.path.isdir(os.path.join(input_path, file_dir)):
+                if file_dir not in AVOID_DIRS:
+                    dir_list.append(file_dir)
+        output_str += (f"   ({len(dir_list)}) directories "
+                       f"[{bytes_to_readable(par_size)}]\n")
+        print(output_str, end='')  # skip newline to stdout
+        for count, directory in enumerate(sorted(dir_list)):
+            subdir_path = os.path.join(parent_dir, curr_dir, directory)
+            dir_size = get_directory_size(subdir_path)
+            last_mod_ts = os.path.getmtime(subdir_path)
+            subdir_last_modified = datetime.datetime.fromtimestamp(last_mod_ts)
+            dir_size = [f"{count + 1:02}",
+                        f"{dir_size:08}",
+                        f"{bytes_to_readable(dir_size)}",
+                        f"{subdir_path}",
+                        f"{subdir_last_modified}"]
+            dir_size_list.append(dir_size)
+    return dir_size_list, output_str
 
 
 def get_files(input_path: str, input_ext: str) -> tuple:
@@ -363,14 +378,15 @@ def get_files(input_path: str, input_ext: str) -> tuple:
     def_name = inspect.currentframe().f_code.co_name
     file_list = []
     file_path_list = []
-    if is_path_exists_or_creatable(input_path):
-        for root_path, dirs, files in os.walk(input_path):
-            for this_file in files:
-                if this_file.lower().endswith((input_ext)):
-                    this_file_path = os.path.join(root_path, this_file)
-                    if check_pathname_skip(this_file_path):
-                        file_list.append(this_file)
-                        file_path_list.append(this_file_path)
-        file_path_list.sort(key=lambda x: (-x.count(os.sep), x))
-    print(f"{def_name}: [{len(file_list):03} {input_ext}] files")
+    if isinstance(input_path, str) and isinstance(input_ext, str):
+        if is_path_exists_or_creatable(input_path):
+            for root_path, dirs, files in os.walk(input_path):
+                for _file in files:
+                    if _file.lower().endswith(input_ext):
+                        file_path = os.path.join(root_path, _file)
+                        if path_not_in_avoid(file_path):
+                            file_list.append(_file)
+                            file_path_list.append(file_path)
+            file_path_list.sort(key=lambda x: (-x.count(os.sep), x))
+        print(f"{def_name}: [{len(file_list):03} {input_ext}] files")
     return sorted(file_list), file_path_list

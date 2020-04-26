@@ -1,18 +1,17 @@
-#!python3
-# -*- coding: utf-8 -*-
-from collections import OrderedDict
+# -*- coding: UTF-8 -*-
+"""Module to read and parse DICOM tag data from text files."""
+import argparse
 import inspect
 import math
-import optparse
 import os
 import string
 import sys
 import time
+from collections import OrderedDict
 import xlsxwriter
-from custom import config
-from custom import file_tools
-from custom import dicom_tools
-
+from pylibs import config
+from pylibs import file_tools
+from pylibs import dicom_tools
 
 BASE_DIR, SCRIPT_NAME = os.path.split(os.path.abspath(__file__))
 PARENT_PATH, CURR_DIR = os.path.split(BASE_DIR)
@@ -27,7 +26,7 @@ valid_chars = f"-_.()~{ALPHABET}{string.digits}"
 
 
 def get_header_column_widths(input_tag_list: list) -> dict:
-    """Returns dynamically sized column widths based on cell values"""
+    """Returns dynamically sized column widths based on cell values."""
     # list: [row1:[hdr1, ..., hdrN], row2:[data1, ..., dataN]... rowN]
     headers = list(input_tag_list[0])
     scalar = 1.2  # account for presentations difference
@@ -49,7 +48,7 @@ def get_header_column_widths(input_tag_list: list) -> dict:
 
 
 def export_to_excel(output_path: str, filename: str, stat_list: list) -> str:
-    """Exports DICOM tag data into output Excel report file with markup"""
+    """Exports DICOM tag data into output Excel report file with markup."""
     def_name = inspect.currentframe().f_code.co_name
     status_str = f"{def_name}() in: '{output_path}'\n"
     print(status_str)
@@ -128,7 +127,7 @@ def export_to_excel(output_path: str, filename: str, stat_list: list) -> str:
 
 
 def is_fuji_tag_dump(txt_file_lines: list) -> tuple:
-    """Dynamically determines if input is Fuji or DCMTK"""
+    """Dynamically determines if input is Fuji or DCMTK."""
     isFuji = False
     isDCMTK = False
     # check only first n-lines of input file for unique substring match
@@ -142,7 +141,7 @@ def is_fuji_tag_dump(txt_file_lines: list) -> tuple:
 
 def get_tag_line_number(tag_keyword: str = '(0008,0020)',
                         lines: list = []) -> int:
-    """Optimization: stop iterating once index to tag_keyword is located"""
+    """Optimization: stop iterating once index to tag_keyword is located."""
     # using tag_keyword '(0008,0050)' or '0008 0050'
     # if tag_keyword not in input_lines, return -1.
     return next((line_num for line_num, line_str in enumerate(lines)
@@ -151,7 +150,7 @@ def get_tag_line_number(tag_keyword: str = '(0008,0020)',
 
 def get_tag_indices(tags: list, lines: list,
                     is_optimized: bool = True) -> dict:
-    """iterates through lines to find desired DICOM tags"""
+    """Iterates through lines to find desired DICOM tags."""
     tag_indices_dict = OrderedDict([(hdr, '') for hdr in tags])
     # using tag_keyword '(0008,0050)' or '0008 0050'
     if is_optimized:
@@ -171,7 +170,7 @@ def get_tag_indices(tags: list, lines: list,
 
 
 def parse_dicom_tag_dump(input_headers: list, input_path: str) -> list:
-    """Parse DICOM desired tag data from input .txt files"""
+    """Parse DICOM desired tag data from input .txt files."""
     def_name = inspect.currentframe().f_code.co_name
     status_str = f"{def_name}() in: '{input_path}'\n"
     print(status_str)
@@ -246,19 +245,19 @@ def parse_dicom_tag_dump(input_headers: list, input_path: str) -> list:
     return output_tag_list
 
 
-def get_cmd_args():
-    """command line input on directory to scan recursively for files"""
+def get_cmd_args() -> str:
+    """Command line input on directory to scan recursively for DICOM dumps."""
     def_name = inspect.currentframe().f_code.co_name
-    parser = optparse.OptionParser()
-    parser.add_option("-i", "--input", help="input path")
-    options, remain = parser.parse_args()
-    if options.input is None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-i", "--input", type=str, help="input path")
+    args = parser.parse_args()
+    if args.input is None:
         if config.DEMO_ENABLED:
             input_path = os.path.join(PARENT_PATH, 'input', 'tag_dumps')
         else:
             input_path = os.path.join(PARENT_PATH, 'tag_dumps_all')
     else:
-        input_path = options.input
+        input_path = args.input
         if os.path.exists(input_path) and os.path.isdir(input_path):
             print(f"{def_name}() dumping path:'{input_path}'")
         else:
@@ -267,7 +266,8 @@ def get_cmd_args():
     return input_path
 
 
-if __name__ == "__main__":
+def main():
+    """Driver to read and parse DICOM tag data from text files."""
     print(f"{SCRIPT_NAME} starting...")
     start = time.perf_counter()
     config.print_header(SCRIPT_NAME)
@@ -290,3 +290,7 @@ if __name__ == "__main__":
         print(f"~!ERROR!~ invalid path: {input_path}")
     end = time.perf_counter() - start
     print(f"{SCRIPT_NAME} finished in {end:0.2f} seconds")
+
+
+if __name__ == "__main__":
+    main()

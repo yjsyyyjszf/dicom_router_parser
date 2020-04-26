@@ -1,5 +1,5 @@
-#!python3
-# -*- coding: utf-8 -*-
+# -*- coding: UTF-8 -*-
+"""DICOM centric utilities for DCMTK and Fuji tags."""
 from collections import OrderedDict
 
 FUJI_TAG = 'Grp  Elmt | Description'

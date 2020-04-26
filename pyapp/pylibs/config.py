@@ -1,5 +1,5 @@
-#!/usr/bin/env python3
 # -*- coding: UTF-8 -*-
+"""Config module for constants and header information."""
 import json
 import locale
 import os
@@ -32,8 +32,7 @@ def get_login() -> str:
         return username
     except OSError as exception:
         print(f"  {sys.exc_info()[0]}\n'{exception}'")
-    else:
-        return 'anon_docker'
+    return 'anon_docker'
 
 
 def get_isp_info() -> str:
@@ -55,7 +54,7 @@ __author__ = "averille"
 __email__ = "github.pdx@runbox.com"
 __status__ = "demo"
 __license__ = "MIT"
-__version__ = "1.3.3"
+__version__ = "1.3.6"
 
 
 def print_header(script_name) -> None:
