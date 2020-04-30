@@ -25,20 +25,19 @@ __all__ = ['print_current_packages', 'get_login',
 
 def print_current_packages():
     """Displays currently installed python packages on host."""
-    distros = list(pkg_resources.working_set)
-    installed = sorted([f"{d.project_name:}=={d.version}" for d in distros])
-    for pkg_num, pkg_name in enumerate(installed):
-        print(f"pkg_{pkg_num:03d}: {pkg_name}")
+    installed = sorted([f"{d.project_name:}=={d.version}" for d in
+                        list(pkg_resources.working_set)])
+    for pkg_name in installed:
+        print(f"{pkg_name}")
 
 
 def get_login() -> str:
     """"getpass.getuser() os.getlogin(): docker does not have username."""
     try:
         username = os.getlogin()
-        return username
     except OSError as exception:
-        print(f"  {sys.exc_info()[0]}\n'{exception}'")
-    return 'anon_docker'
+        username = 'anon_docker'
+    return username
 
 
 def get_isp_info() -> str:
@@ -60,7 +59,7 @@ __author__ = "averille"
 __email__ = "github.pdx@runbox.com"
 __status__ = "demo"
 __license__ = "MIT"
-__version__ = "1.3.7"
+__version__ = "1.3.8"
 
 
 def print_header(script_name) -> None:

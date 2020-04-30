@@ -7,12 +7,12 @@ import os
 import string
 import sys
 import time
+import pathlib
 from collections import OrderedDict
 import xlsxwriter
 from pylibs import config
 from pylibs import file_tools
 from pylibs import dicom_tools
-
 
 BASE_DIR, SCRIPT_NAME = os.path.split(os.path.abspath(__file__))
 PARENT_PATH, CURR_DIR = os.path.split(BASE_DIR)
@@ -48,7 +48,8 @@ def get_header_column_widths(input_tag_list: list) -> dict:
     return hdr_col_width_dict
 
 
-def export_to_excel(output_path: str, filename: str, stat_list: list) -> str:
+def export_to_excel(output_path: pathlib.Path, filename: str,
+                    stat_list: list) -> str:
     """Exports DICOM tag data into output Excel report file with markup."""
     def_name = inspect.currentframe().f_code.co_name
     status_str = f"{def_name}() in: '{output_path}'\n"
@@ -56,7 +57,7 @@ def export_to_excel(output_path: str, filename: str, stat_list: list) -> str:
     if len(stat_list) > 0:
         try:
             file_basename, file_ext = filename.split('.')
-            output_filepath = os.path.join(output_path, filename)
+            output_filepath = pathlib.Path(output_path, filename)
             workbook = xlsxwriter.Workbook(f"{output_filepath}")
             ws1 = workbook.add_worksheet(
                 file_basename[:MAX_EXCEL_TAB])  # <= 31 chars
@@ -170,28 +171,29 @@ def get_tag_indices(tags: list, lines: list,
     return tag_indices_dict
 
 
-def parse_dicom_tag_dump(input_headers: list, input_path: str) -> list:
+def parse_dicom_tag_dump(input_headers: list,
+                         input_path: pathlib.Path) -> list:
     """Parse DICOM desired tag data from input .txt files."""
     def_name = inspect.currentframe().f_code.co_name
     status_str = f"{def_name}() in: '{input_path}'\n"
     print(status_str)
     tag_name = 'tagdump'
     source_ext = '.txt'
-    filename_list, filepath_list = file_tools.get_files(input_path, source_ext)
+    file_path_list = file_tools.get_files(input_path, source_ext)
     file_count = 0
     dump_count = 0
     output_tag_list = [input_headers]  # first row contains headers
-    if not filepath_list:
+    if not file_path_list:
         error_msg = f"~!ERROR!~ missing files, check path: \n{input_path}"
         print(error_msg)
     else:
-        print(f"PARSING: ({len(filepath_list)}) '{source_ext}' files")
-        for this_file in filepath_list:
+        print(f"PARSING: ({len(file_path_list)}) '{source_ext}' files")
+        for this_file in file_path_list:
             file_count += 1
             parsed_file_list = []
             read_file_handle = open(this_file, 'r')
-            if tag_name not in this_file:
-                print(f"   reading_{file_count:03}: {this_file}")
+            if tag_name not in str(this_file):
+                print(f"   reading_{file_count:03}: {str(this_file)}")
                 lines_list = read_file_handle.readlines()
                 # dynamically determine which input file format:
                 (isFuji, isDCMTK) = is_fuji_tag_dump(lines_list[0:5])
@@ -246,7 +248,7 @@ def parse_dicom_tag_dump(input_headers: list, input_path: str) -> list:
     return output_tag_list
 
 
-def get_cmd_args() -> str:
+def get_cmd_args() -> pathlib.Path:
     """Command line input on directory to scan recursively for DICOM dumps."""
     def_name = inspect.currentframe().f_code.co_name
     parser = argparse.ArgumentParser()
@@ -254,13 +256,13 @@ def get_cmd_args() -> str:
     args = parser.parse_args()
     if args.input is None:
         if config.DEMO_ENABLED:
-            input_path = os.path.join(PARENT_PATH, 'input', 'tag_dumps')
+            input_path = pathlib.Path(PARENT_PATH, 'input', 'tag_dumps')
         else:
-            input_path = os.path.join(PARENT_PATH, 'tag_dumps_all')
+            input_path = pathlib.Path(PARENT_PATH, 'tag_dumps_all')
     else:
-        input_path = args.input
-        if os.path.exists(input_path) and os.path.isdir(input_path):
-            print(f"{def_name}() dumping path:'{input_path}'")
+        input_path = pathlib.Path(args.input)
+        if input_path.exists() and input_path.is_dir():
+            print(f"{def_name}() dumping path:'{str(input_path)}'")
         else:
             parser.error(f"invalid path: '{input_path}'")
             input_path = None
@@ -273,13 +275,13 @@ def main():
     start = time.perf_counter()
     config.print_header(SCRIPT_NAME)
     input_path = get_cmd_args()
-    if os.path.exists(input_path):
+    if input_path.exists():
         if config.DEMO_ENABLED:
-            output_path = os.path.join(PARENT_PATH, 'output')
+            output_path = pathlib.Path(PARENT_PATH, 'output')
         else:
-            output_path = os.path.join(PARENT_PATH, CURR_DIR, 'tag_dumps_all')
-        if not os.path.exists(output_path):
-            os.makedirs(output_path)
+            output_path = pathlib.Path(PARENT_PATH, CURR_DIR, 'tag_dumps_all')
+        if not output_path.exists():
+            os.makedirs(str(output_path))
         all_tag_list = parse_dicom_tag_dump(dicom_tools.headers, input_path)
         curr_date, curr_time = file_tools.generate_date_str()
         filename = f"{config.TEMP_TAG}dicom_tag_dumps.xlsx"

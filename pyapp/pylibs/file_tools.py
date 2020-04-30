@@ -5,11 +5,12 @@ import inspect
 import hashlib
 import os
 import pathlib
+import string
 import sys
-import chardet
 from collections import OrderedDict
+from collections import Counter
+import chardet
 from boltons.fileutils import mkdir_p
-
 
 BASE_DIR, SCRIPT_NAME = os.path.split(os.path.abspath(__file__))
 PARENT_PATH, CURR_DIR = os.path.split(BASE_DIR)
@@ -17,44 +18,68 @@ IS_WINDOWS = sys.platform.startswith('win')
 DEBUG = False
 SHOW_METHODS = False
 
-__all__ = ['show_method', 'bytes_to_readable', 'split_path', 'sanitize',
-           'save_output_txt', 'get_directories', 'get_files', 'get_extensions']
+__all__ = ['build_index_alphabet', 'bytes_to_readable',
+           'is_encoded', 'check_encoding', 'remove_accents', 'get_sha256_hash',
+           'get_directory_size', 'split_path', 'is_config_in_path',
+           'generate_date_str', 'save_output_txt', 'count_files',
+           'build_parent_size_str', 'build_extension_count_str',
+           'get_dir_stats', 'get_directories', 'get_files', 'get_extensions']
 
 
-def show_method(method_name: str) -> None:
+def show_methods(method_name: str) -> None:
     """Display method names for verbose/debugging."""
     if SHOW_METHODS:
         print(f"{method_name.upper()}()")
+
+
+def build_index_alphabet() -> dict:
+    """Generates index to letter mapping: A,B,C,...AA,AB,AC,...BA,BB,BC,..."""
+    limited = ['', 'A', 'B', 'C', 'D', 'E']
+    letters = []
+    letters.extend(list(string.ascii_uppercase))
+    max_cols = len(letters) * len(limited)
+    alphabet_dict = OrderedDict()
+    col_count = 0
+    for idx in range(1, max_cols, 1):
+        first_letter = limited[col_count]
+        mod_idx = (idx % 26) - 1
+        second_letter = letters[mod_idx]
+        if col_count == 0:
+            alphabet_dict[idx] = f"{second_letter}"
+        else:
+            alphabet_dict[idx] = f"{first_letter}{second_letter}"
+        if (idx % len(letters) == 0) and (idx != 0):
+            col_count += 1
+    return alphabet_dict
 
 
 def bytes_to_readable(input_bytes: int) -> str:
     """Converts file size to Windows/Linux formatted string."""
     if not isinstance(input_bytes, int) or not input_bytes:
         return '0 bytes'
-    number_of_bytes = float(input_bytes)
+    n_bytes = float(input_bytes)
     unit_str = 'bytes'
     if IS_WINDOWS:
         kilobyte = 1024.0  # iso_binary size windows
     else:
         kilobyte = 1000.0  # si_unit size linux
     if input_bytes < 0:
-        print(f"ERROR: input:'{number_of_bytes}' < 0")
+        return f"ERROR: input:'{n_bytes}' < 0"
     else:
-        if (number_of_bytes / kilobyte) >= 1:
-            number_of_bytes /= kilobyte
+        if (n_bytes / kilobyte) >= 1:
+            n_bytes /= kilobyte
             unit_str = 'KiB'
-        if (number_of_bytes / kilobyte) >= 1:
-            number_of_bytes /= kilobyte
+        if (n_bytes / kilobyte) >= 1:
+            n_bytes /= kilobyte
             unit_str = 'MiB'
-        if (number_of_bytes / kilobyte) >= 1:
-            number_of_bytes /= kilobyte
+        if (n_bytes / kilobyte) >= 1:
+            n_bytes /= kilobyte
             unit_str = 'GiB'
-        if (number_of_bytes / kilobyte) >= 1:
-            number_of_bytes /= kilobyte
+        if (n_bytes / kilobyte) >= 1:
+            n_bytes /= kilobyte
             unit_str = 'TiB'
-        precision = 2
-        number_of_bytes = round(number_of_bytes, precision)
-    return str(f"{number_of_bytes:05.2F} {unit_str}")
+        n_bytes = round(n_bytes, 2)
+        return str(f"{n_bytes:05.2F} {unit_str}")
 
 
 def is_encoded(data, encoding: str = 'default') -> bool:
@@ -94,58 +119,63 @@ def remove_accents(byte_input, byte_enc: str, confidence: float) -> str:
             elif is_encoded(byte_input, 'UTF-8'):
                 dec_str = byte_input.decode('UTF-8')
             # enc_bytes = dec_str.encode('UTF-8')  # python ascii string
-    except (UnicodeDecodeError, UnicodeError) as exception:
+    except (UnicodeDecodeError, UnicodeError) as exc:
         print(f"\nERROR: input: '{input}' {type(input)}")
-        print(f"  {sys.exc_info()[0]}\n{exception}")
+        print(f"  {sys.exc_info()[0]}\n{exc}")
     return dec_str
 
 
-def get_sha256_hash(input_path: str = 'default') -> str:
+def get_sha256_hash(input_path: pathlib.Path) -> str:
     """Returns SHA1 hash value of input filepath."""
-    if not isinstance(input_path, str) or not input_path:
-        return 'no hash'
-    pl_path = pathlib.Path(input_path)
-    if pl_path.exists():
-        file_pointer = open(input_path, 'rb')
-        fp_read = file_pointer.read()
-        sha_hash = hashlib.sha256(fp_read)
-        sha_hex = str(sha_hash.hexdigest().upper())
-        file_pointer.close()
-        return sha_hex
+    sha_hex = 'no hash'
+    if isinstance(input_path, pathlib.Path) or input_path:
+        if input_path.exists():
+            try:
+                file_pointer = open(str(input_path), 'rb')
+                fp_read = file_pointer.read()
+                sha_hash = hashlib.sha256(fp_read)
+                sha_hex = str(sha_hash.hexdigest().upper())
+                file_pointer.close()
+            except (OSError, PermissionError) as exc:
+                print(f"\nERROR: {inspect.currentframe().f_code.co_name}()")
+                print(f"  {sys.exc_info()[0]}\n{exc}")
+    return sha_hex
 
 
-def get_directory_size(input_path: str = 'default') -> int:
-    """Returns recursive sum of file sizes from input directory path."""
-    show_method(inspect.currentframe().f_code.co_name)
-    if not isinstance(input_path, str) and not input_path:
-        return 0
-    pl_path = pathlib.Path(input_path)
-    if pl_path.exists():
-        r_file_sizes = [f.stat().st_size for f in pl_path.rglob('*')
+def get_directory_size(input_path: pathlib.Path,
+                       recursive: bool = True) -> int:
+    """Returns sum of file sizes from input directory path."""
+    show_methods(inspect.currentframe().f_code.co_name)
+    if isinstance(input_path, pathlib.Path) and input_path:
+        if input_path.exists():
+            if recursive:
+                r_file_sizes = [f.stat().st_size for f in input_path.rglob('*')
                                 if f.is_file()]
-        return sum(r_file_sizes)
+            else:
+                r_file_sizes = [f.stat().st_size for f in input_path.glob('*')
+                                if f.is_file()]
+            return sum(r_file_sizes)
     return 0
 
 
-def split_path(input_path: str = 'default') -> tuple:
+def split_path(input_path: pathlib.Path) -> tuple:
+    """Splits filepath into parts."""
     if isinstance(input_path, str) or input_path:
-        pl_path = pathlib.Path(input_path)
-        if pl_path.exists():
-            path_head, path_tail = os.path.split(input_path)
-            parent = pl_path.parent
-            curr_dir = str(path_tail)
-            file_name = pl_path.stem
-            file_ext = pl_path.suffix
+        if input_path.exists():
+            # path_head, path_tail = os.path.split(str(input_path))
+            parent = str(input_path.parent)
+            curr_dir = str(input_path.parts[-1])
+            file_name = str(input_path.stem)
+            file_ext = str(input_path.suffix)
             return parent, curr_dir, file_name, file_ext
     return None
 
 
-def path_not_in_avoid(input_path: str = 'default') -> bool:
+def is_config_in_path(input_path: pathlib.Path) -> bool:
     """Returns true if all directories to avoid are not in input_path."""
-    if isinstance(input_path, str) and input_path:
-        avoid_dirs = ['log_files', 'Program Files', 'ProgramData', 'Windows',
-                      '.git', '.idea', 'venv', '__pycache__', '$RECYCLE.BIN',
-                      '__init__']
+    if isinstance(input_path, pathlib.Path) and input_path:
+        avoid_dirs = ['.git', '.idea', '.pytest_cache', 'venv',
+                      '__pycache__', '__init__']
         path_hit = next((s for s in avoid_dirs if s in input_path), 'VALID')
         if path_hit == 'VALID':
             return True
@@ -180,7 +210,7 @@ def save_output_txt(out_path: str, output_filename: str, output_str: str,
     """Exports string to text file, uses the '.txt' file extension."""
     def_name = inspect.currentframe().f_code.co_name
     try:
-        if len(output_str) > 4:
+        if len(output_str) >= 1:
             # split based on last occurrence of '.' using rsplit()
             if '.' in output_filename:
                 base_name, orig_ext = output_filename.rsplit(sep='.',
@@ -197,112 +227,117 @@ def save_output_txt(out_path: str, output_filename: str, output_str: str,
             if not os.path.exists(out_path):
                 mkdir_p(out_path)
             # 'w'=write, 'a'=append, 'b'=binary, 'x'=create
-            open_flags = 'w'
-            with open(output_path_txt, open_flags) as txt_file:
+            with open(output_path_txt, 'w', encoding='utf-8') as txt_file:
                 txt_file.write(output_str)
             txt_file.close()
             status = f"\nSUCCESS! {def_name}()"
         else:
             status = f"\nERROR! no data to export... {def_name}()"
-    except (IOError, OSError, PermissionError, FileExistsError) as exception:
-        status = f"\n~!ERROR!~ {sys.exc_info()[0]}\n{exception}"
-    finally:
-        return status
+    except (IOError, OSError, PermissionError, FileExistsError) as exc:
+        status = f"\n~!ERROR!~ {sys.exc_info()[0]}\n{exc}"
+    return status
 
 
-def count_files(input_path: str, file_ext: str = '.mp3') -> int:
+def count_files(input_path: pathlib.Path, file_ext: str = '.mp3') -> int:
     """Returns recursive count of files with specific extension."""
-    if not isinstance(input_path, str) and not input_path:
-        return 0
-    pl_path = pathlib.Path(input_path)
-    if pl_path.exists():
-        if isinstance(file_ext, str) and file_ext:
-            files = sorted(pl_path.rglob(f"*{file_ext}"))
-            return len(files)
+    if isinstance(input_path, pathlib.Path) and input_path:
+        if input_path.exists():
+            if isinstance(file_ext, str) and file_ext:
+                files = [str(p.absolute()) for p in
+                         input_path.rglob(f"*{file_ext}") if p.is_file()]
+                return len(files)
     return 0
 
 
-def convert_dict_to_str(input_path: str, ext_map: dict) -> str:
-    """Converts dictionary values to custom formatted string."""
-    output_str = ""
-    file_count = ""
-    if ext_map:
-        for _ext, count in ext_map.items():
-            print(f"   extension_dict: [{_ext:5} = {count:04}]")
-            file_count += f"\t[{count:04}]\t{_ext:5}\n"
-        output_str = (f"FOUND: '{len(ext_map):02}' extensions: "
-                      f"'{input_path}'\n{file_count}")
+def build_parent_size_str(input_path: pathlib.Path) -> str:
+    """Return list of directories within input path (including subfolders)."""
+    output_str = ''
+    if isinstance(input_path, pathlib.Path) and input_path:
+        dir_list = get_directories(input_path, recursive=True)
+        par_size = get_directory_size(input_path, recursive=True)
+        output_str += (f"found: '{len(dir_list)}' directories "
+                       f"[{bytes_to_readable(par_size)}]\n")
     return output_str
 
 
-def get_extensions(input_path: str = 'default') -> dict:
-    """Returns recursive set of all file extensions within input path."""
-    def_name = inspect.currentframe().f_code.co_name
-    output_str = f"\n{def_name}()"
-    print(output_str)
-    extension_dict = {}
-    # get unique set of file extensions (including sub-folders)
-    if pathlib.Path(input_path).exists():
-        for root_path, dirs, files in os.walk(input_path):
-            for _file in files:
-                if path_not_in_avoid(_file):
-                    file_ext = f".{_file.split('.')[-1].lower()}"
-                    # exclude files without extension
-                    if len(file_ext) > 1:
-                        if file_ext not in extension_dict:
-                            extension_dict[file_ext] = 0
-    # get count of each unique extension in file_path - sorted order
-    sorted_extension_dict = OrderedDict()
-    for _ext in sorted(extension_dict.keys()):
-        file_count = count_files(input_path, _ext)
-        sorted_extension_dict[_ext] = file_count
-    return sorted_extension_dict
+def build_extension_count_str(input_path: pathlib.Path) -> str:
+    """Returns recursive set of all file extensions as string."""
+    output_str = 'default'
+    if isinstance(input_path, pathlib.Path) and input_path:
+        if input_path.exists():
+            ext_list = [str(p.suffix) for p in
+                        input_path.rglob(f"*.*") if p.is_file()]
+            # get count of each unique extensions in alphabetical order
+            ext_dict = OrderedDict(Counter(sorted(ext_list)))
+            ext_count_str = ''
+            for _ext, count in ext_dict.items():
+                ext_count_str += f"\t{count:04}\t{_ext:5} files\n"
+            output_str = (f"found: '{len(ext_dict):02}' file extensions: "
+                          f"\n{ext_count_str}")
+    print(input_path, output_str)
+    return output_str
 
 
-def get_directories(input_path: str = 'default') -> tuple:
-    """Return list of directories within input path (including subfolders)."""
-    def_name = inspect.currentframe().f_code.co_name
+def get_dir_stats(input_path: pathlib.Path) -> list:
+    """Return list of directory metadata."""
     dir_size_list = []
-    output_str = f"\n{def_name}()\n"
-    if isinstance(input_path, str) and input_path:
-        dir_list = []
-        parent_dir, curr_dir, file_name, file_ext = split_path(input_path)
-        par_size = get_directory_size(input_path)
-        for file_dir in sorted(os.listdir(input_path)):
-            if os.path.isdir(os.path.join(input_path, file_dir)):
-                if path_not_in_avoid(file_dir):
-                    dir_list.append(file_dir)
-        output_str += (f"   ({len(dir_list)}) directories "
-                       f"[{bytes_to_readable(par_size)}]\n")
-        print(output_str, end='')  # skip newline to stdout
-        for count, directory in enumerate(sorted(dir_list)):
-            subdir_path = os.path.join(parent_dir, curr_dir, directory)
-            dir_size = get_directory_size(subdir_path)
+    if isinstance(input_path, pathlib.Path) and input_path:
+        dir_list = get_directories(input_path, recursive=True)
+        for count, subdir_path in enumerate(dir_list):
+            dir_size = get_directory_size(subdir_path, recursive=True)
             last_mod_ts = os.path.getmtime(subdir_path)
-            subdir_last_modified = datetime.datetime.fromtimestamp(last_mod_ts)
-            dir_size = [f"{count + 1:02}",
+            last_modified = datetime.datetime.fromtimestamp(last_mod_ts)
+            dir_stat = [f"{count + 1:02}",
                         f"{dir_size:08}",
                         f"{bytes_to_readable(dir_size)}",
                         f"{subdir_path}",
-                        f"{subdir_last_modified}"]
-            dir_size_list.append(dir_size)
-    return dir_size_list, output_str
+                        f"{last_modified}"]
+            dir_size_list.append(dir_stat)
+    return dir_size_list
 
 
-def get_files(input_path: str, input_ext: str) -> tuple:
-    """Get files, paths for specific file extension (including sub-folders)."""
-    def_name = inspect.currentframe().f_code.co_name
-    file_list = []
+def get_directories(input_path: pathlib.Path,
+                    recursive: bool = True) -> list:
+    """Returns recursive set of all directories within input path."""
+    if isinstance(input_path, pathlib.Path) and input_path:
+        if input_path.exists():
+            if recursive:
+                dir_list = [p.absolute() for p in
+                            sorted(input_path.rglob(f"*")) if p.is_dir()]
+            else:
+                dir_list = [p.absolute() for p in
+                            sorted(input_path.glob(f"*")) if p.is_dir()]
+    return sorted(dir_list)
+
+
+def get_files(input_path: pathlib.Path, file_ext: str,
+              recursive: bool = True) -> list:
+    """Get file paths for specific file extension (including sub-folders)."""
     file_path_list = []
-    if isinstance(input_path, str) and isinstance(input_ext, str):
-        if pathlib.Path(input_path).exists():
-            for root_path, dirs, files in os.walk(input_path):
-                for _file in files:
-                    if _file.lower().endswith(input_ext):
-                        file_path = os.path.join(root_path, _file)
-                        if path_not_in_avoid(file_path):
-                            file_list.append(_file)
-                            file_path_list.append(file_path)
-            file_path_list.sort(key=lambda x: (-x.count(os.sep), x))
-        print(f"{def_name}: [{len(file_list):03} {input_ext}] files")
-    return sorted(file_list), file_path_list
+    if isinstance(input_path, pathlib.Path) and isinstance(file_ext, str):
+        if input_path.exists():
+            if recursive:
+                file_path_list = [p.absolute() for p in
+                                  sorted(input_path.rglob(f"*{file_ext}"))
+                                  if p.is_file()]
+            else:
+                file_path_list = [p.absolute() for p in
+                                  sorted(input_path.glob(f"*{file_ext}"))
+                                  if p.is_file()]
+    return file_path_list
+
+
+def get_extensions(input_path: pathlib.Path,
+                   recursive: bool = True) -> list:
+    """Returns recursive set of all file extensions within input path."""
+    if isinstance(input_path, pathlib.Path) and input_path:
+        if input_path.exists():
+            if recursive:
+                ext_list = [str(p.suffix) for p in
+                            input_path.rglob(f"*") if p.is_file()]
+            else:
+                ext_list = [str(p.suffix) for p in
+                            input_path.glob(f"*") if p.is_file()]
+            ext_set = set(ext_list)
+            return sorted(ext_set)
+    return None

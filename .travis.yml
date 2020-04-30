@@ -8,6 +8,10 @@ install:
 env:
   - SH=bash
   - export PYTHONPATH=$PYTHONPATH:$(pwd)
+before_script:
+  - mongo admin --eval 'db.createUser({user:"run_user_run",pwd:"run_pass_run",roles:["dbAdminAnyDatabase"]});'
+services:
+  - mongodb
 script:
   - python -m pytest
 branches:

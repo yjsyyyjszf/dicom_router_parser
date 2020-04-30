@@ -1,5 +1,6 @@
 # -*- coding: UTF-8 -*-
 """DICOM centric utilities for DCMTK and Fuji tags."""
+import pathlib
 from collections import OrderedDict
 
 __all__ = ['build_fuji_tag_dict', 'build_dcmtk_tag_dict']
@@ -11,7 +12,6 @@ headers = ["filename", "accessionNumber", "modality",
            "sourceApplicationEntityTitle", "stationName",
            "institutionName", "manufacturer",
            "manufacturerModelName", "transferSyntaxUid"]
-
 
 transfer_syntax = OrderedDict(
     [("1.2.840.10008.1.2", 'LittleEndianImplicit'),  # ILE
@@ -29,10 +29,10 @@ transfer_syntax.update(inv_transfer_syntax)
 
 
 # tag: (0008,0050) is represented as '0008 0050' for FUJI sourced files
-def build_fuji_tag_dict(input_filename: str = 'default') -> dict:
+def build_fuji_tag_dict(input_filename: pathlib.Path) -> dict:
     """Creates mapping of Fuji tag names to values"""
     fuji_tag_dict = OrderedDict()
-    fuji_tag_dict['filename'] = input_filename
+    fuji_tag_dict['filename'] = str(input_filename)
     fuji_tag_dict['accessionNumber'] = '0008 0050'
     fuji_tag_dict['modality'] = '0008 0060'
     fuji_tag_dict['sourceApplicationEntityTitle'] = '0002 0016'
@@ -45,10 +45,10 @@ def build_fuji_tag_dict(input_filename: str = 'default') -> dict:
 
 
 # tag: (0008,0050) is represented as '(0008,0050)' for DCMTK sourced files
-def build_dcmtk_tag_dict(input_filename: str = 'default') -> dict:
+def build_dcmtk_tag_dict(input_filename: pathlib.Path) -> dict:
     """Creates mapping of DCMTK tag names to values"""
     dcmtk_tag_dict = OrderedDict()
-    dcmtk_tag_dict['filename'] = input_filename
+    dcmtk_tag_dict['filename'] = str(input_filename)
     dcmtk_tag_dict['accessionNumber'] = '(0008,0050)'
     dcmtk_tag_dict['modality'] = '(0008,0060)'
     dcmtk_tag_dict['sourceApplicationEntityTitle'] = '(0002,0016)'
