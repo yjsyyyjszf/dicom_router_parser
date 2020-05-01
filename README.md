@@ -1,5 +1,7 @@
 # *Compass Imaging Router* DICOM Transfer Reporting
 
+[![Build Status](https://travis-ci.com/github-pdx/dicom_router_parser.svg?branch=master)](https://travis-ci.com/github-pdx/dicom_router_parser)
+
 ## PowerShell Script (v4.0+) to Parse DICOMs
 Copies *largest* DICOM (.dcm) from source directory to new destination.
 Then runs a tag dump to extract specific information about each study. 
