@@ -4,7 +4,7 @@ PS script to connect to Compass database and extract external transfers
 $author = "averille.pdx"
 $email = "dicom.pdx@runbox.com"
 $status = "Testing on PHODICOMRTRTST PS v4.0 to v5.1"
-$version = "1.1.0"
+$version = "1.1.1"
 $ps_version = $PSVersionTable.PSVersion
 $script_name = $MyInvocation.MyCommand.Name 
 

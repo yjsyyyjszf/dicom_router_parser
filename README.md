@@ -22,7 +22,9 @@ pattern:['ADAC_','AEGISWEB','FILA_','MEHC_','RSEND_','SWMC_','SW_','SW_CATH','VA
 
 ## Directories:
 ```powershell
-$dcmtk_path = "$pwd_parent_path\dcmtk-3.6.5-win32-dynamic\bin"
+$dcm4che_path = "$pwd_parent_path\libs\lib_dcm4che-5.22.0\bin"
+$dcmtk_path = "$pwd_parent_path\libs\lib_dcmtk-3.6.5\bin"
+$gdmc_path = "$pwd_parent_path\libs\lib_gdmc-2.8\bin"
 $src_path = "$pwd_parent_path\input\images"
 $dst_path = "$pwd_parent_path\output\$base_filename$(Get-Month-Filename)"
 IMG_RTR_MM-YYYY_DICOMs (for output dcm/tag dumps)
@@ -30,7 +32,7 @@ IMG_RTR_MM-YYYY_LOGs   (for Excel/text reports)
 ```
 
 ## Example Output:
-![Screenshot](https://github.com/github-pdx/dicom.router.parser/blob/master/screenshots/excel.export.png)
+![Screenshot](https://github.com/github-pdx/dicom.router.parser/blob/master/img/excel.export.png)
 * [DICOM-based Excel Report](https://github.com/github-pdx/dicom.router.parser/blob/master/output/IMG_RTR_Transfers_06-09-19.xlsx)
 * [DICOM Tag Dump](https://github.com/github-pdx/dicom.router.parser/blob/master/output/dicom_export_example/9fe63f0a-d304-4a22-9e4b-f0ebe63f7f78.txt)
 * [XML Tag Dump](https://github.com/github-pdx/dicom.router.parser/blob/master/output/dicom_export_example/9fe63f0a-d304-4a22-9e4b-f0ebe63f7f78.xml)
@@ -51,22 +53,11 @@ IMG_RTR_MM-YYYY_LOGs   (for Excel/text reports)
 * [DCF Examples](http://www.laurelbridge.com/docs/dcf34/ExampleDocs/)
 * [GDCM](https://github.com/malaterre/GDCM)
 
-## License:
-[Licensed under the MIT License](LICENSE).
-
 
 ## **Dependencies:**
 * [PowerShell v4.0+](https://www.microsoft.com/en-us/download/details.aspx?id=54616)
 * [DCMTK 3.6.5-executable binaries](https://github.com/github-pdx/dicom.router.parser/tree/master/dcmtk-3.6.5-win32-dynamic)
 * [Microsoft Visual C++ 2012 Redistributable Package (x64)](https://www.microsoft.com/en-us/download/details.aspx?id=30679)
 
-When attempting to run \dcmtk-3.6.5-**win64**-dynamic\bin\dcmdump.exe to parse tag data, if you get the following error: 
-
-![Screenshot](https://github.com/github-pdx/dicom.router.parser/blob/master/screenshots/missing.MSVCP110.dll_(x64).png)
-
-**Below is the fix:**
-
-![Screenshot](https://github.com/github-pdx/dicom.router.parser/blob/master/screenshots/install.C++.redistributable_(x64).png)
-
-## Maintainer:
-averille.pdx
+## License:
+[MIT License](LICENSE)

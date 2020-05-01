@@ -7,7 +7,7 @@ Lastly, this script exports desired metadata to .csv/.xlsx, where each row = 1 i
 $author = "averille.pdx"
 $email = "dicom.pdx@runbox.com"
 $status = "Testing on PHODICOMRTRTST PS v4.0 to v5.1"
-$version = "1.3.5"
+$version = "1.3.6"
 $ps_version = $PSVersionTable.PSVersion
 $script_name = $MyInvocation.MyCommand.Name 
 
@@ -125,7 +125,9 @@ function Print_Bool_State ( [string]$input_title='default_title', [bool]$input_b
 
 $pwd_path = Get-Location
 $pwd_parent_path = Split-Path -Path $pwd_path -Parent
-$dcmtk_path = "$pwd_parent_path\libs\dcmtk-3.6.5-win32-dynamic\bin"
+$dcm4che_path = "$pwd_parent_path\libs\lib_dcm4che-5.22.0\bin"
+$dcmtk_path = "$pwd_parent_path\libs\lib_dcmtk-3.6.5\bin"
+$gdmc_path = "$pwd_parent_path\libs\lib_gdmc-2.8\bin"
 $isdcmtkPathValid = is_Path_Valid "dcmtk_path" $dcmtk_path
 
 #$src_parent_path = "D:\ImageRepository"     # on compass router 
