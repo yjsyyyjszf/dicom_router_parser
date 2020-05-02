@@ -35,7 +35,7 @@ def get_login() -> str:
     """"getpass.getuser() os.getlogin(): docker does not have username."""
     try:
         username = os.getlogin()
-    except OSError as exception:
+    except OSError:
         username = 'anon_docker'
     return username
 

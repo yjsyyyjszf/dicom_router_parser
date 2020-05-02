@@ -1,6 +1,7 @@
 # Custom
-test_coverage
+test_code_style
 test_formatting
+check_style_coverage.py
 
 #IDE metadata
 .idea/

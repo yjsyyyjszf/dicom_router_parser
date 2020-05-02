@@ -23,7 +23,7 @@ MAX_EXCEL_TAB_DIR = 27
 MAX_EXCEL_TAB = 31
 
 ALPHABET = string.ascii_uppercase
-valid_chars = f"-_.()~{ALPHABET}{string.digits}"
+VALID_CHARS = f"-_.()~{ALPHABET}{string.digits}"
 
 
 def get_header_column_widths(input_tag_list: list) -> dict:
@@ -32,7 +32,7 @@ def get_header_column_widths(input_tag_list: list) -> dict:
     headers = list(input_tag_list[0])
     scalar = 1.2  # account for presentations difference
     hdr_col_width_dict = OrderedDict([(hdr, -1) for hdr in headers])
-    for row_num, tag_list in enumerate(input_tag_list):
+    for tag_list in input_tag_list:
         for col_num, cell_val in enumerate(tag_list):
             header = headers[col_num]
             max_length = len(cell_val)
@@ -52,8 +52,6 @@ def export_to_excel(output_path: pathlib.Path, filename: str,
                     stat_list: list) -> str:
     """Exports DICOM tag data into output Excel report file with markup."""
     def_name = inspect.currentframe().f_code.co_name
-    status_str = f"{def_name}() in: '{output_path}'\n"
-    print(status_str)
     if len(stat_list) > 0:
         try:
             file_basename, file_ext = filename.split('.')
@@ -121,28 +119,28 @@ def export_to_excel(output_path: pathlib.Path, filename: str,
                                                     'value': 'OT',
                                                     'format': format_red})
             workbook.close()
-            status_str = f"SUCCESS! {def_name}() \n{output_filepath}"
-        except Exception as exp:
+            status_str = f"SUCCESS! {def_name}() " \
+                         f"'{os.sep.join(output_filepath.parts[-3:])}'"
+        except (OSError, xlsxwriter.exceptions.FileCreateError,
+                UnicodeDecodeError) as exp:
             status_str = f"~!ERROR!~ {def_name}() {sys.exc_info()[0]}\n{exp}"
-        finally:
-            return status_str
+        return status_str
 
 
 def is_fuji_tag_dump(txt_file_lines: list) -> tuple:
     """Dynamically determines if input is Fuji or DCMTK."""
-    isFuji = False
-    isDCMTK = False
+    is_fuji = False
+    is_dcmtk = False
     # check only first n-lines of input file for unique substring match
     for line_str in txt_file_lines[0:5]:
         if dicom_tools.FUJI_TAG in line_str:
-            isFuji = True
+            is_fuji = True
         if dicom_tools.DCMTK_TAG in line_str:
-            isDCMTK = True
-    return isFuji, isDCMTK
+            is_dcmtk = True
+    return is_fuji, is_dcmtk
 
 
-def get_tag_line_number(tag_keyword: str = '(0008,0020)',
-                        lines: list = []) -> int:
+def get_tag_line_number(tag_keyword: str, lines: list) -> int:
     """Optimization: stop iterating once index to tag_keyword is located."""
     # using tag_keyword '(0008,0050)' or '0008 0050'
     # if tag_keyword not in input_lines, return -1.
@@ -175,11 +173,9 @@ def parse_dicom_tag_dump(input_headers: list,
                          input_path: pathlib.Path) -> list:
     """Parse DICOM desired tag data from input .txt files."""
     def_name = inspect.currentframe().f_code.co_name
-    status_str = f"{def_name}() in: '{input_path}'\n"
+    status_str = f"{def_name}() in: '{os.sep.join(input_path.parts[-3:])}'"
     print(status_str)
-    tag_name = 'tagdump'
-    source_ext = '.txt'
-    file_path_list = file_tools.get_files(input_path, source_ext)
+    file_path_list = file_tools.get_files(input_path, '.txt')
     file_count = 0
     dump_count = 0
     output_tag_list = [input_headers]  # first row contains headers
@@ -187,19 +183,19 @@ def parse_dicom_tag_dump(input_headers: list,
         error_msg = f"~!ERROR!~ missing files, check path: \n{input_path}"
         print(error_msg)
     else:
-        print(f"PARSING: ({len(file_path_list)}) '{source_ext}' files")
+        print(f"parsing: ({len(file_path_list)}) '.txt' files")
         for this_file in file_path_list:
             file_count += 1
             parsed_file_list = []
             read_file_handle = open(this_file, 'r')
-            if tag_name not in str(this_file):
+            if 'tagdump' not in str(this_file):
                 print(f"   reading_{file_count:03}: {str(this_file)}")
                 lines_list = read_file_handle.readlines()
                 # dynamically determine which input file format:
-                (isFuji, isDCMTK) = is_fuji_tag_dump(lines_list[0:5])
-                if isFuji:
+                (is_fuji, is_dcmtk) = is_fuji_tag_dump(lines_list[0:5])
+                if is_fuji:
                     elements = dicom_tools.build_fuji_tag_dict(this_file)
-                elif isDCMTK:
+                elif is_dcmtk:
                     elements = dicom_tools.build_dcmtk_tag_dict(this_file)
                 else:
                     elements = None  # input '.txt' not a tag dump
@@ -207,8 +203,7 @@ def parse_dicom_tag_dump(input_headers: list,
                     # re-initializes output dict for each file to blank values
                     tag_dict = OrderedDict([(hdr, '')
                                             for hdr in list(elements.keys())])
-                    path_head, path_tail = os.path.split(this_file)
-                    tag_dict['filename'] = path_tail
+                    tag_dict['filename'] = os.path.split(this_file)[-1]
                     # using values: tag '(0008,0050)' or '0008 0050'
                     tag_indices = get_tag_indices(list(elements.values()),
                                                   lines_list)
@@ -218,7 +213,7 @@ def parse_dicom_tag_dump(input_headers: list,
                         tag_num += 1
                         line_str = tag_indices[tag_value]
                         if len(tag_indices) > 0:
-                            if isDCMTK:
+                            if is_dcmtk:
                                 # parse value between square brackets [..]
                                 if '[' in line_str:
                                     target_value = \
@@ -228,7 +223,7 @@ def parse_dicom_tag_dump(input_headers: list,
                                     target_value = \
                                         line_str.split('=', 1)[1].split('#')[0]
                                     tag_dict[tag_key] = target_value.strip()
-                            elif isFuji:
+                            elif is_fuji:
                                 # parse value between double quotes "..."
                                 if '"' in line_str:
                                     target_value = \
@@ -238,13 +233,13 @@ def parse_dicom_tag_dump(input_headers: list,
                             print(f"tag_{tag_num:02} {tag_key:24} "
                                   f"\t{tag_value} line: {line_str:40} "
                                   f"len:{len(line_str):02} chars")
-                    for tag_attribute, parsed_val in tag_dict.items():
+                    for parsed_val in tag_dict.values():
                         parsed_file_list.append(parsed_val)
                     output_tag_list.append(parsed_file_list)
             read_file_handle.close()
         print(
-            f"EXTRACTION: {dump_count} dumps of "
-            f"{file_count} '{source_ext}' files")
+            f"extraction: {dump_count} dumps of "
+            f"{file_count} '.txt' files")
     return output_tag_list
 
 
@@ -282,8 +277,7 @@ def main():
             output_path = pathlib.Path(PARENT_PATH, CURR_DIR, 'tag_dumps_all')
         if not output_path.exists():
             os.makedirs(str(output_path))
-        all_tag_list = parse_dicom_tag_dump(dicom_tools.headers, input_path)
-        curr_date, curr_time = file_tools.generate_date_str()
+        all_tag_list = parse_dicom_tag_dump(dicom_tools.HEADERS, input_path)
         filename = f"{config.TEMP_TAG}dicom_tag_dumps.xlsx"
         # works on both linux and windows
         if len(all_tag_list) > 1:  # more than just headers

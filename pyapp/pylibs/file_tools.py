@@ -10,7 +10,6 @@ import sys
 from collections import OrderedDict
 from collections import Counter
 import chardet
-from boltons.fileutils import mkdir_p
 
 BASE_DIR, SCRIPT_NAME = os.path.split(os.path.abspath(__file__))
 PARENT_PATH, CURR_DIR = os.path.split(BASE_DIR)
@@ -65,21 +64,20 @@ def bytes_to_readable(input_bytes: int) -> str:
         kilobyte = 1000.0  # si_unit size linux
     if input_bytes < 0:
         return f"ERROR: input:'{n_bytes}' < 0"
-    else:
-        if (n_bytes / kilobyte) >= 1:
-            n_bytes /= kilobyte
-            unit_str = 'KiB'
-        if (n_bytes / kilobyte) >= 1:
-            n_bytes /= kilobyte
-            unit_str = 'MiB'
-        if (n_bytes / kilobyte) >= 1:
-            n_bytes /= kilobyte
-            unit_str = 'GiB'
-        if (n_bytes / kilobyte) >= 1:
-            n_bytes /= kilobyte
-            unit_str = 'TiB'
-        n_bytes = round(n_bytes, 2)
-        return str(f"{n_bytes:05.2F} {unit_str}")
+    if (n_bytes / kilobyte) >= 1:
+        n_bytes /= kilobyte
+        unit_str = 'KiB'
+    if (n_bytes / kilobyte) >= 1:
+        n_bytes /= kilobyte
+        unit_str = 'MiB'
+    if (n_bytes / kilobyte) >= 1:
+        n_bytes /= kilobyte
+        unit_str = 'GiB'
+    if (n_bytes / kilobyte) >= 1:
+        n_bytes /= kilobyte
+        unit_str = 'TiB'
+    n_bytes = round(n_bytes, 2)
+    return str(f"{n_bytes:05.2F} {unit_str}")
 
 
 def is_encoded(data, encoding: str = 'default') -> bool:
@@ -225,7 +223,7 @@ def save_output_txt(out_path: str, output_filename: str, output_str: str,
                 out_filename_ext = f"~{out_filename_ext}"
             output_path_txt = os.path.join(out_path, out_filename_ext)
             if not os.path.exists(out_path):
-                mkdir_p(out_path)
+                os.makedirs(out_path)
             # 'w'=write, 'a'=append, 'b'=binary, 'x'=create
             with open(output_path_txt, 'w', encoding='utf-8') as txt_file:
                 txt_file.write(output_str)
@@ -255,8 +253,9 @@ def build_parent_size_str(input_path: pathlib.Path) -> str:
     if isinstance(input_path, pathlib.Path) and input_path:
         dir_list = get_directories(input_path, recursive=True)
         par_size = get_directory_size(input_path, recursive=True)
-        output_str += (f"found: '{len(dir_list)}' directories "
+        output_str += (f"\nfound: '{len(dir_list)}' directories "
                        f"[{bytes_to_readable(par_size)}]\n")
+    print(f"{output_str}", end='')
     return output_str
 
 
@@ -274,7 +273,7 @@ def build_extension_count_str(input_path: pathlib.Path) -> str:
                 ext_count_str += f"\t{count:04}\t{_ext:5} files\n"
             output_str = (f"found: '{len(ext_dict):02}' file extensions: "
                           f"\n{ext_count_str}")
-    print(input_path, output_str)
+    print(output_str, end='')
     return output_str
 
 

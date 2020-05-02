@@ -8,12 +8,12 @@ __all__ = ['build_fuji_tag_dict', 'build_dcmtk_tag_dict']
 FUJI_TAG = 'Grp  Elmt | Description'
 DCMTK_TAG = 'Dicom-Meta-Information-Header'
 
-headers = ["filename", "accessionNumber", "modality",
+HEADERS = ["filename", "accessionNumber", "modality",
            "sourceApplicationEntityTitle", "stationName",
            "institutionName", "manufacturer",
            "manufacturerModelName", "transferSyntaxUid"]
 
-transfer_syntax = OrderedDict(
+TRANSFER_SYNTAX = OrderedDict(
     [("1.2.840.10008.1.2", 'LittleEndianImplicit'),  # ILE
      ("1.2.840.10008.1.2.1", 'LittleEndianExplicit'),  # ELE
      ("1.2.840.10008.1.2.2", 'BigEndianExplicit'),  # EBE
@@ -24,8 +24,7 @@ transfer_syntax = OrderedDict(
      ("1.2.840.10008.1.2.4.90", 'JPEG2000Lossless'),  # J2KL
      ("1.2.840.10008.1.2.4.91", 'JPEG2000'),  # J2K
      ("1.2.840.10008.1.2.5", 'RunLengthEncoding')])  # RLE
-inv_transfer_syntax = {v: k for k, v in transfer_syntax.items()}
-transfer_syntax.update(inv_transfer_syntax)
+TRANSFER_SYNTAX.update({v: k for k, v in TRANSFER_SYNTAX.items()})
 
 
 # tag: (0008,0050) is represented as '0008 0050' for FUJI sourced files

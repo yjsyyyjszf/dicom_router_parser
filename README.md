@@ -1,6 +1,7 @@
 # *Compass Imaging Router* DICOM Transfer Reporting
 
 [![Build Status](https://travis-ci.com/github-pdx/dicom_router_parser.svg?branch=master)](https://travis-ci.com/github-pdx/dicom_router_parser)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
 ## PowerShell Script (v4.0+) to Parse DICOMs
 Copies *largest* DICOM (.dcm) from source directory to new destination.
